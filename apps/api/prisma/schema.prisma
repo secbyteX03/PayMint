@@ -8,90 +8,74 @@ datasource db {
 }
 
 model Agent {
-  id          String   @id @default(uuid())
-  ownerAddress String  @unique
-  name        String
-  description String
-  status      AgentStatus @default(ACTIVE)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  services    Service[]
+  id                String    @id @default(uuid())
+  ownerAddress       String    @unique
+  name              String
+  description       String?
+  status            String    @default("ACTIVE")
+  apiEndpoint       String?
+  apiKey            String?
+  webhookUrl        String?
+  documentationUrl  String?
+  capabilities      String[]
+  pricingModel      String    @default("PER_CALL")
+  pricePerCall      Decimal?  @db.Decimal(15, 7)
+  pricePerMonth     Decimal?  @db.Decimal(15, 7)
+  logoUrl           String?
+  websiteUrl        String?
+  supportEmail      String?
+  termsOfServiceUrl String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  services          Service[]
 }
 
 model Service {
-  id            String      @id @default(uuid())
-  agentId       String
-  agent         Agent       @relation(fields: [agentId], references: [id])
-  name          String
-  description   String
-  serviceType   ServiceType @default(CUSTOM)
-  pricePerCall Decimal     @db.Decimal(15, 7)
-  currency      String      @default("USDC")
-  isActive      Boolean     @default(true)
-  totalCalls    Int         @default(0)
-  createdAt     DateTime    @default(now())
-  payments      Payment[]
+  id             String    @id @default(uuid())
+  agentId        String
+  agent          Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  serviceType    String    @default("CUSTOM")
+  pricePerCall   Decimal   @db.Decimal(15, 7)
+  currency       String    @default("USDC")
+  isActive       Boolean   @default(true)
+  totalCalls     Int       @default(0)
+  endpoint       String?
+  method         String    @default("POST")
+  rateLimit      Int?
+  timeout        Int?
+  retryPolicy    String?
+  responseFormat String?
+  schema         String?
+  usageExamples  String[]
+  createdAt      DateTime  @default(now())
+  payments       Payment[]
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  serviceId       String
-  service         Service       @relation(fields: [serviceId], references: [id])
-  buyerAddress    String
-  sellerAddress   String
-  amount          Decimal       @db.Decimal(15, 7)
+  id               String    @id @default(uuid())
+  serviceId        String
+  service          Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  buyerAddress     String
+  sellerAddress    String
+  amount           Decimal   @db.Decimal(15, 7)
   currency        String
-  status          PaymentStatus @default(PENDING)
-  transactionHash String?
-  escrowId        String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  status           String    @default("PENDING")
+  transactionHash  String?
+  escrowId         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model Transaction {
-  id              String   @id @default(uuid())
-  hash            String   @unique
-  type            TransactionType
-  fromAddress     String
-  toAddress       String
-  amount          Decimal  @db.Decimal(15, 7)
-  currency        String
-  status          TransactionStatus @default(PENDING)
-  createdAt       DateTime @default(now())
-}
-
-enum AgentStatus {
-  REGISTERED
-  ACTIVE
-  SUSPENDED
-  PAUSED
-}
-
-enum ServiceType {
-  DATA_ANALYSIS
-  API_ACCESS
-  CONTENT_GENERATION
-  RESEARCH
-  CUSTOM
-}
-
-enum PaymentStatus {
-  PENDING
-  ESCROW_CREATED
-  COMPLETED
-  REFUNDED
-  FAILED
-}
-
-enum TransactionType {
-  PAYMENT
-  ESCROW_CREATE
-  ESCROW_RELEASE
-  ESCROW_REFUND
-}
-
-enum TransactionStatus {
-  PENDING
-  CONFIRMED
-  FAILED
+  id         String   @id @default(uuid())
+  hash       String   @unique
+  type       String
+  fromAddress String
+  toAddress   String
+  amount     Decimal  @db.Decimal(15, 7)
+  currency   String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
 }

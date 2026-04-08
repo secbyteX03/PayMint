@@ -1,74 +1,231 @@
-import { agentDb, serviceDb, Agent, Service } from '../config/inMemoryDb';
+import { supabase, supabaseAdmin } from '../config/prisma';
 
 export class AgentService {
   async registerAgent(
     ownerAddress: string,
     name: string,
-    description: string
-  ): Promise<Agent> {
-    // Check if agent already exists
-    const existing = agentDb.findByOwner(ownerAddress);
+    description: string,
+    apiEndpoint?: string,
+    apiKey?: string,
+    webhookUrl?: string,
+    documentationUrl?: string,
+    capabilities?: string[],
+    pricingModel?: string,
+    pricePerCall?: number,
+    pricePerMonth?: number,
+    logoUrl?: string,
+    websiteUrl?: string,
+    supportEmail?: string,
+    termsOfServiceUrl?: string
+  ) {
+    // Check if an agent with this owner address already exists
+    try {
+      const existingByOwner = await supabase
+        .from('agents')
+        .select('id')
+        .eq('ownerAddress', ownerAddress)
+        .maybeSingle();
 
-    if (existing) {
-      throw new Error('Agent already registered');
+      if (existingByOwner.data) {
+        throw new Error('An agent has already been registered with this wallet address');
+      }
+    } catch (checkError: any) {
+      if (checkError.message === 'An agent has already been registered with this wallet address') {
+        throw checkError;
+      }
+      // Ignore other errors (schema cache issues)
     }
 
-    // Create new agent
-    const agent = agentDb.create({
+    // Check if agent name already exists (global uniqueness)
+    try {
+      const existingByName = await supabase
+        .from('agents')
+        .select('id')
+        .eq('name', name)
+        .maybeSingle();
+
+      if (existingByName.data) {
+        throw new Error('An agent with this name already exists');
+      }
+    } catch (checkError: any) {
+      if (checkError.message === 'An agent with this name already exists') {
+        throw checkError;
+      }
+      // Ignore other errors (schema cache issues)
+    }
+
+    // Minimal insert to avoid schema cache issues
+    const insertData: any = {
       ownerAddress,
       name,
-      description,
-      status: 'ACTIVE',
-    });
+    };
+    
+    // Only add description (this field is definitely in the schema)
+    if (description) insertData.description = description;
+    
+    const { error } = await supabase
+      .from('agents')
+      .insert(insertData);
 
-    return agent;
+    if (error) {
+      // If it's a schema cache error, try inserting with just required fields
+      if (error.message.includes('schema cache')) {
+        const minimalData = { ownerAddress, name };
+        const { error: retryError } = await supabase
+          .from('agents')
+          .insert(minimalData);
+        
+        if (retryError) throw new Error(retryError.message);
+        
+        // Fetch the newly created agent
+        const { data: newAgent } = await supabase
+          .from('agents')
+          .select()
+          .eq('ownerAddress', ownerAddress)
+          .eq('name', name)
+          .single();
+        
+        return newAgent;
+      }
+      throw new Error(error.message);
+    }
+
+    // Fetch the newly created agent
+    const { data: newAgent } = await supabase
+      .from('agents')
+      .select()
+      .eq('ownerAddress', ownerAddress)
+      .eq('name', name)
+      .single();
+
+    return newAgent;
   }
 
-  async getAgent(id: string): Promise<Agent | null> {
-    const agent = agentDb.findById(id);
-    if (!agent) return null;
-    
-    // Include services
-    const services = serviceDb.findByAgentId(id);
-    return { ...agent, services } as any;
+  async getAgent(id: string) {
+    const { data, error } = await supabase
+      .from('agents')
+      .select()
+      .eq('id', id)
+      .single();
+
+    if (error) return null;
+    return data;
   }
 
-  async getAgentByOwner(ownerAddress: string): Promise<Agent | null> {
-    const agent = agentDb.findByOwner(ownerAddress);
-    if (!agent) return null;
-    
-    // Include services
-    const services = serviceDb.findByAgentId(agent.id);
-    return { ...agent, services } as any;
+  async getAgentByOwner(ownerAddress: string) {
+    const { data, error } = await supabase
+      .from('agents')
+      .select()
+      .eq('ownerAddress', ownerAddress);
+
+    if (error) return null;
+    return data || [];
   }
 
   async updateAgentStatus(
     id: string,
     status: 'REGISTERED' | 'ACTIVE' | 'SUSPENDED' | 'PAUSED'
-  ): Promise<Agent | null> {
-    return agentDb.update(id, { status }) || null;
+  ) {
+    const { data, error } = await supabase
+      .from('agents')
+      .update({ status })
+      .eq('id', id)
+      .select('*, services(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
   }
 
-  async listAgents(): Promise<Agent[]> {
-    return agentDb.findAll();
+  async listAgents() {
+    const { data, error } = await supabase
+      .from('agents')
+      .select('*, services(*)');
+
+    if (error) throw new Error(error.message);
+    return data || [];
   }
 
-  async getAgentStats(id: string): Promise<{
-    totalServices: number;
-    totalPayments: number;
-    totalRevenue: string;
-  }> {
-    const agent = agentDb.findById(id);
+  async getAgentStats(id: string) {
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('*, services(*, payments(*))')
+      .eq('id', id)
+      .single();
 
-    if (!agent) {
+    if (agentError || !agent) {
       throw new Error('Agent not found');
     }
 
-    const services = serviceDb.findByAgentId(id);
+    const services = agent.services || [];
     const totalServices = services.length;
-    const totalPayments = services.reduce((sum, svc) => sum + svc.totalCalls, 0);
-    const totalRevenue = '0.00';
+    const totalPayments = services.reduce(
+      (sum: number, svc: any) => sum + (svc.totalCalls || 0),
+      0
+    );
 
-    return { totalServices, totalPayments, totalRevenue };
+    // Calculate total revenue from completed payments
+    const totalRevenue = services.reduce((sum: number, svc: any) => {
+      const payments = svc.payments || [];
+      const completedPayments = payments.filter(
+        (p: any) => p.status === 'COMPLETED'
+      );
+      return (
+        sum +
+        completedPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
+      );
+    }, 0);
+
+    return {
+      totalServices,
+      totalPayments,
+      totalRevenue: totalRevenue.toFixed(2),
+    };
+  }
+
+  async updateAgent(id: string, data: {
+    name?: string;
+    description?: string;
+    apiEndpoint?: string;
+    apiKey?: string;
+    webhookUrl?: string;
+    documentationUrl?: string;
+    capabilities?: string[];
+    pricingModel?: string;
+    pricePerCall?: number;
+    pricePerMonth?: number;
+    logoUrl?: string;
+    websiteUrl?: string;
+    supportEmail?: string;
+    termsOfServiceUrl?: string;
+  }) {
+    const { data: agent, error } = await supabase
+      .from('agents')
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return agent;
+  }
+
+  async getAgentByOwnerWithStats(ownerAddress: string) {
+    const { data: agents, error } = await supabase
+      .from('agents')
+      .select('*, services(id, name, serviceType, pricePerCall, isActive, totalCalls)')
+      .eq('ownerAddress', ownerAddress);
+
+    if (error) throw new Error(error.message);
+    
+    // Add service count to each agent
+    return (agents || []).map(agent => ({
+      ...agent,
+      _count: {
+        services: agent.services?.length || 0
+      }
+    }));
   }
 }
+
+export const agentService = new AgentService();

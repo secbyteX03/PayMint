@@ -7,7 +7,22 @@ const serviceService = new ServiceService();
 // Register new service
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { agentId, name, description, serviceType, pricePerCall, currency } = req.body;
+    const { 
+      agentId, 
+      name, 
+      description, 
+      serviceType, 
+      pricePerCall, 
+      currency,
+      endpoint,
+      method,
+      rateLimit,
+      timeout,
+      retryPolicy,
+      responseFormat,
+      schema,
+      usageExamples
+    } = req.body;
     
     if (!agentId || !name || !pricePerCall) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -19,7 +34,15 @@ router.post('/register', async (req: Request, res: Response) => {
       description,
       serviceType || 'CUSTOM',
       pricePerCall,
-      currency || 'USDC'
+      currency || 'USDC',
+      endpoint,
+      method,
+      rateLimit ? parseInt(rateLimit) : undefined,
+      timeout ? parseInt(timeout) : undefined,
+      retryPolicy,
+      responseFormat,
+      schema,
+      usageExamples
     );
     res.status(201).json(service);
   } catch (error: any) {
@@ -68,6 +91,66 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
     const { isActive } = req.body;
     const service = await serviceService.updateServiceStatus(req.params.id, isActive);
     res.json(service);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update service
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const { 
+      name, 
+      description, 
+      serviceType, 
+      pricePerCall, 
+      currency,
+      endpoint,
+      method,
+      rateLimit,
+      timeout,
+      retryPolicy,
+      responseFormat,
+      schema,
+      usageExamples
+    } = req.body;
+    
+    const service = await serviceService.updateService(req.params.id, {
+      name,
+      description,
+      serviceType,
+      pricePerCall,
+      currency,
+      endpoint,
+      method,
+      rateLimit,
+      timeout,
+      retryPolicy,
+      responseFormat,
+      schema,
+      usageExamples
+    });
+    res.json(service);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete service
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    await serviceService.deleteService(req.params.id);
+    res.json({ message: 'Service deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all services with agent info (for services page)
+router.get('/all/list', async (req: Request, res: Response) => {
+  try {
+    const services = await serviceService.listAllServicesWithAgent();
+    res.json(services);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
