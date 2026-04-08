@@ -802,6 +802,7 @@ interface Service {
   currency: string;
   isActive: boolean;
   agentId: string;
+  totalCalls?: number;
 }
 
 interface DashboardStats {
@@ -825,39 +826,103 @@ export default function DashboardPage() {
     }
   }, [searchParams]);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+
   const [showApiConfigModal, setShowApiConfigModal] = useState(false);
   const [showWebhookConfigModal, setShowWebhookConfigModal] = useState(false);
   const [registerStep, setRegisterStep] = useState(1);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState('');
   const [registerSuccess, setRegisterSuccess] = useState(false);
-  const [agentData, setAgentData] = useState({ name: '', description: '' });
-  const [serviceData, setServiceData] = useState({ name: '', description: '', serviceType: 'CUSTOM', pricePerCall: '', currency: 'USDC' });
+  const [agentData, setAgentData] = useState({
+    name: '',
+    description: '',
+    apiEndpoint: '',
+    apiKey: '',
+    webhookUrl: '',
+    documentationUrl: '',
+    capabilities: '',
+    pricingModel: 'PER_CALL',
+    pricePerCall: '',
+    pricePerMonth: '',
+    logoUrl: '',
+    websiteUrl: '',
+    supportEmail: '',
+    termsOfServiceUrl: ''
+  });
+  const [serviceData, setServiceData] = useState({
+    name: '',
+    description: '',
+    serviceType: 'CUSTOM',
+    pricePerCall: '',
+    currency: 'USDC',
+    endpoint: '',
+    method: 'POST',
+    rateLimit: '',
+    timeout: '',
+    retryPolicy: '',
+    responseFormat: 'JSON',
+    schema: '',
+    usageExamples: ''
+  });
   
   const [stats, setStats] = useState<DashboardStats>({
-    totalRevenue: 2481,
-    apiCalls: 14208,
-    activeEscrows: 37,
-    avgLatency: 84
+    totalRevenue: 0,
+    apiCalls: 0,
+    activeEscrows: 0,
+    avgLatency: 0
   });
-  const [agents, setAgents] = useState<Agent[]>([
-    { id: '1', name: 'DataAnalyzer-X', description: 'Data · Analytics', ownerAddress: 'GA3X6AE2WRN5VF2QE5YMQPJ4HRKLXQJG2C4FGRU5U7FLSQ6QHHIYEV5N', status: 'on', type: 'Data · Analytics', revenue: 842, calls: 6120 },
-    { id: '2', name: 'NLPEngine-7', description: 'Text · Inference', ownerAddress: 'GA3X6AE2WRN5VF2QE5YMQPJ4HRKLXQJG2C4FGRU5U7FLSQ6QHHIYEV5N', status: 'on', type: 'Text · Inference', revenue: 611, calls: 4308 },
-    { id: '3', name: 'ImageVision-3', description: 'Vision · OCR', ownerAddress: 'GA3X6AE2WRN5VF2QE5YMQPJ4HRKLXQJG2C4FGRU5U7FLSQ6QHHIYEV5N', status: 'idle', type: 'Vision · OCR', revenue: 288, calls: 2110 }
-  ]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [myAgent, setMyAgent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  // Generate random latency value only once on mount
+  const latencyDelta = mounted ? Math.floor(Math.random() * 20) + 5 : 15;
+
+  // Update myAgent when address changes or when agents list updates
+  useEffect(() => {
+    if (address && agents.length > 0) {
+      const userAgent = agents.find((a: any) => a.ownerAddress?.toLowerCase() === address?.toLowerCase());
+      setMyAgent(userAgent || null);
+    }
+  }, [address, agents]);
 
   useEffect(() => {
+    setMounted(true);
     const fetchData = async () => {
       try {
         const baseUrl = 'http://localhost:3001/api';
+        
+        // Fetch stats from API
+        try {
+          const statsRes = await fetch(`${baseUrl}/stats`);
+          if (statsRes.ok) {
+            const statsData = await statsRes.json();
+            setStats({
+              totalRevenue: parseFloat(statsData.totalVolume || '0'),
+              apiCalls: statsData.totalPayments || 0,
+              activeEscrows: statsData.totalServices || 0,
+              avgLatency: 0 // Not available from API, default to 0
+            });
+          }
+        } catch (e) {
+          console.log('Using default stats');
+        }
         
         try {
           const agentsRes = await fetch(`${baseUrl}/agents`);
           if (agentsRes.ok) {
             const agentsData = await agentsRes.json();
             setAgents(agentsData);
+            
+            // Find user's agent by their wallet address
+            if (address) {
+              const userAgent = agentsData.find((a: any) => a.ownerAddress?.toLowerCase() === address?.toLowerCase());
+              if (userAgent) {
+                setMyAgent(userAgent);
+              }
+            }
           }
         } catch (e) {
           console.log('Using demo agents');
@@ -898,6 +963,11 @@ export default function DashboardPage() {
     setRegisterError('');
     
     try {
+      // Parse capabilities from comma-separated string to array
+      const capabilities = agentData.capabilities 
+        ? agentData.capabilities.split(',').map(c => c.trim()).filter(c => c)
+        : undefined;
+      
       const response = await fetch('http://localhost:3001/api/agents/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -905,6 +975,18 @@ export default function DashboardPage() {
           ownerAddress: address,
           name: agentData.name,
           description: agentData.description,
+          apiEndpoint: agentData.apiEndpoint || undefined,
+          apiKey: agentData.apiKey || undefined,
+          webhookUrl: agentData.webhookUrl || undefined,
+          documentationUrl: agentData.documentationUrl || undefined,
+          capabilities: capabilities,
+          pricingModel: agentData.pricingModel,
+          pricePerCall: agentData.pricePerCall ? parseFloat(agentData.pricePerCall) : undefined,
+          pricePerMonth: agentData.pricePerMonth ? parseFloat(agentData.pricePerMonth) : undefined,
+          logoUrl: agentData.logoUrl || undefined,
+          websiteUrl: agentData.websiteUrl || undefined,
+          supportEmail: agentData.supportEmail || undefined,
+          termsOfServiceUrl: agentData.termsOfServiceUrl || undefined,
         }),
       });
       
@@ -937,6 +1019,11 @@ export default function DashboardPage() {
       const agentResponse = await fetch(`http://localhost:3001/api/agents/address/${address}`);
       const agentInfo = await agentResponse.json();
       
+      // Parse usage examples from newline-separated string to array
+      const usageExamples = serviceData.usageExamples
+        ? serviceData.usageExamples.split('\n').map(e => e.trim()).filter(e => e)
+        : undefined;
+      
       await fetch('http://localhost:3001/api/services/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -947,6 +1034,14 @@ export default function DashboardPage() {
           serviceType: serviceData.serviceType,
           pricePerCall: parseFloat(serviceData.pricePerCall),
           currency: serviceData.currency,
+          endpoint: serviceData.endpoint || undefined,
+          method: serviceData.method,
+          rateLimit: serviceData.rateLimit ? parseInt(serviceData.rateLimit) : undefined,
+          timeout: serviceData.timeout ? parseInt(serviceData.timeout) : undefined,
+          retryPolicy: serviceData.retryPolicy || undefined,
+          responseFormat: serviceData.responseFormat || undefined,
+          schema: serviceData.schema || undefined,
+          usageExamples: usageExamples,
         }),
       });
       
@@ -965,8 +1060,8 @@ export default function DashboardPage() {
         setShowRegisterModal(false);
         setRegisterStep(1);
         setRegisterSuccess(false);
-        setAgentData({ name: '', description: '' });
-        setServiceData({ name: '', description: '', serviceType: 'CUSTOM', pricePerCall: '', currency: 'USDC' });
+        setAgentData({ name: '', description: '', apiEndpoint: '', apiKey: '', webhookUrl: '', documentationUrl: '', capabilities: '', pricingModel: 'PER_CALL', pricePerCall: '', pricePerMonth: '', logoUrl: '', websiteUrl: '', supportEmail: '', termsOfServiceUrl: '' });
+        setServiceData({ name: '', description: '', serviceType: 'CUSTOM', pricePerCall: '', currency: 'USDC', endpoint: '', method: 'POST', rateLimit: '', timeout: '', retryPolicy: '', responseFormat: 'JSON', schema: '', usageExamples: '' });
       }, 2000);
     } catch (err: any) {
       setRegisterError(err.message || 'Failed to register service');
@@ -990,55 +1085,31 @@ export default function DashboardPage() {
     setRegisterStep(1);
     setRegisterError('');
     setRegisterSuccess(false);
-    setAgentData({ name: '', description: '' });
-    setServiceData({ name: '', description: '', serviceType: 'CUSTOM', pricePerCall: '', currency: 'USDC' });
+    setAgentData({ name: '', description: '', apiEndpoint: '', apiKey: '', webhookUrl: '', documentationUrl: '', capabilities: '', pricingModel: 'PER_CALL', pricePerCall: '', pricePerMonth: '', logoUrl: '', websiteUrl: '', supportEmail: '', termsOfServiceUrl: '' });
+    setServiceData({ name: '', description: '', serviceType: 'CUSTOM', pricePerCall: '', currency: 'USDC', endpoint: '', method: 'POST', rateLimit: '', timeout: '', retryPolicy: '', responseFormat: 'JSON', schema: '', usageExamples: '' });
   };
 
-  // Use static values for hydration stability - no random values in render
-  const demoAgents: Agent[] = [
-    { id: '1', name: 'DataAnalyzer-X', description: 'Data · Analytics', ownerAddress: 'GA3X6AE2WRN5VF2QE5YMQPJ4HRKLXQJG2C4FGRU5U7FLSQ6QHHIYEV5N', status: 'on', type: 'Data · Analytics', revenue: 842, calls: 6120 },
-    { id: '2', name: 'NLPEngine-7', description: 'Text · Inference', ownerAddress: 'GA3X6AE2WRN5VF2QE5YMQPJ4HRKLXQJG2C4FGRU5U7FLSQ6QHHIYEV5N', status: 'on', type: 'Text · Inference', revenue: 611, calls: 4308 },
-    { id: '3', name: 'ImageVision-3', description: 'Vision · OCR', ownerAddress: 'GA3X6AE2WRN5VF2QE5YMQPJ4HRKLXQJG2C4FGRU5U7FLSQ6QHHIYEV5N', status: 'idle', type: 'Vision · OCR', revenue: 288, calls: 2110 }
-  ];
+  // Use empty array - data fetched from API
+  const displayAgents = agents;
 
   // Static ID for SSR hydration stability
   const stableId = 47000000;
-
-  const demoServices = [
-    { id: '1', name: 'Sentiment Analysis API', type: 'DATA', price: 0.50, calls: 6120, uptime: 84 },
-    { id: '2', name: 'Named Entity Recognition', type: 'NLP', price: 0.25, calls: 4308, uptime: 72 },
-    { id: '3', name: 'Document Parser Pro', type: 'VISION', price: 1.00, calls: 2110, uptime: 56 }
-  ];
-
-  const demoPayments = [
-    { id: '1', name: 'Data Analysis Report — Agent NL7', time: '2 MIN AGO', amount: 0.50, type: 'in', hash: 'GA3X…BC2' },
-    { id: '2', name: 'Vision API Call — Image Batch', time: '11 MIN AGO', amount: 0.20, type: 'out', hash: 'GFB9…E01' },
-    { id: '3', name: 'Market Sentiment Score', time: '28 MIN AGO', amount: 1.00, type: 'in', hash: 'GHCC…9A4' },
-    { id: '4', name: 'NLP Text Classification × 50', time: '54 MIN AGO', amount: 2.50, type: 'in', hash: 'GCA4…77F' }
-  ];
-
-  const demoEscrow = [
-    { name: 'DataAnalyzer', pct: 82, amount: 18.40, color: 'var(--accent)' },
-    { name: 'NLPEngine', pct: 67, amount: 9.20, color: 'var(--accent2)' },
-    { name: 'ImageVision', pct: 45, amount: 4.00, color: 'var(--accent3)' }
-  ];
-
-  const displayAgents = agents.length > 0 ? agents : demoAgents;
 
   const displayServices = services.length > 0 
     ? services.map((s, i) => ({
         id: s.id,
         name: s.name,
-        price: s.pricePerCall || 0,
-        calls: 2000 + (i * 1500),
-        uptime: 80 + (i * 5),
+        price: Number(s.pricePerCall) || 0,
+        calls: s.totalCalls || 0,
+        uptime: 95,
         type: s.serviceType || 'CUSTOM'
       })) 
-    : demoServices;
+    : [];
 
-  const displayPayments = demoPayments;
-  const totalEscrow = demoEscrow.reduce((acc, e) => acc + e.amount, 0);
-  const pendingEscrows = stats.activeEscrows - Math.floor(stats.activeEscrows * 0.7);
+  const displayPayments: { id: string; name: string; time: string; amount: number; type: string; hash: string }[] = [];
+  const displayEscrow: { name: string; pct: number; amount: number; color: string }[] = [];
+  const totalEscrow = 0;
+  const pendingEscrows = Math.max(0, stats.activeEscrows - Math.floor(stats.activeEscrows * 0.7));
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -1053,8 +1124,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Use stable values generated only on client - don't use random for hydration
-    setPageSub(`// LAST SYNC: 2 MIN AGO · EPOCH #${stableId}`);
-  }, [stableId]);
+    setPageSub(`// LAST SYNC: 2 MIN AGO · EPOCH #47000000`);
+  }, []);
 
   const handleNavClick = (section: string) => {
     setActiveSection(section);
@@ -1115,12 +1186,10 @@ export default function DashboardPage() {
           <div className="page-title">Agent Dashboard</div>
           <div className="page-sub">{pageSub}</div>
         </div>
-        <button className="btn btn-primary" onClick={openRegisterModal}>
-          <Plus size={12} />
-          Add Service
-        </button>
       </div>
 
+      {mounted && (
+      <>
       <div className="stats-row">
         <div className="stat-card blue">
           <div className="stat-label">TOTAL REVENUE</div>
@@ -1140,9 +1209,11 @@ export default function DashboardPage() {
         <div className="stat-card orange">
           <div className="stat-label">AVG LATENCY</div>
           <div className="stat-value">{stats.avgLatency}ms</div>
-          <div className="stat-delta neg">↓ −{Math.floor(Math.random() * 20) + 5}ms vs baseline</div>
+          <div className="stat-delta neg">↓ −{latencyDelta}ms vs baseline</div>
         </div>
       </div>
+      </>
+      )}
 
       <div className="grid2">
         <div className="panel">
@@ -1243,16 +1314,20 @@ export default function DashboardPage() {
             <div className="panel-title">Escrow Pipeline</div>
             <div className="panel-meta">USDC LOCKED</div>
           </div>
-          {demoEscrow.map((escrow, i) => (
-            <div key={i} className="escrow-row">
-              <div className="escrow-label">{escrow.name}</div>
-              <div className="escrow-bar-wrap">
-                <div className="escrow-bar-inner" style={{ width: `${escrow.pct}%`, background: escrow.color }}></div>
+          {displayEscrow.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)' }}>No escrow data available</div>
+          ) : (
+            displayEscrow.map((escrow, i) => (
+              <div key={i} className="escrow-row">
+                <div className="escrow-label">{escrow.name}</div>
+                <div className="escrow-bar-wrap">
+                  <div className="escrow-bar-inner" style={{ width: `${escrow.pct}%`, background: escrow.color }}></div>
+                </div>
+                <div className="escrow-pct">{escrow.pct}%</div>
+                <div className="escrow-usdc">${escrow.amount.toFixed(2)}</div>
               </div>
-              <div className="escrow-pct">{escrow.pct}%</div>
-              <div className="escrow-usdc">${escrow.amount.toFixed(2)}</div>
-            </div>
-          ))}
+            ))
+          )}
           <div className="escrow-total">
             <div>
               <div className="escrow-total-label">TOTAL LOCKED</div>
@@ -1289,32 +1364,205 @@ export default function DashboardPage() {
     </>
   );
 
-  const renderMyAgent = () => (
-    <>
-      <div className="page-header">
-        <div>
-          <div className="page-title">My Agent</div>
-          <div className="page-sub">// REGISTER AND MANAGE YOUR AI AGENT</div>
-        </div>
-        <button className="btn btn-primary" onClick={openRegisterModal}>
-          <Plus size={12} />
-          Register Agent
-        </button>
-      </div>
+  const renderMyAgent = () => {
+    // Filter agents to only show user's own agents
+    const userAgents = address 
+      ? agents.filter((a: any) => a.ownerAddress?.toLowerCase() === address?.toLowerCase())
+      : [];
+    
+    // If user has no agents registered but agents exist in the system
+    if (userAgents.length === 0 && agents.length > 0) {
+      return (
+        <>
+          <div className="page-header">
+            <div>
+              <div className="page-title">My Agents</div>
+              <div className="page-sub">// REGISTER AND MANAGE YOUR AI AGENTS</div>
+            </div>
+            <button className="btn btn-primary" onClick={openRegisterModal}>
+              <Plus size={12} />
+              Register Agent
+            </button>
+          </div>
 
-      <div className="panel" style={{ textAlign: 'center', padding: '60px 40px' }}>
-        <Bot size={64} color="var(--accent)" style={{ marginBottom: '20px' }} />
-        <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>No Agent Registered</h3>
-        <p style={{ color: 'var(--muted)', marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
-          Register your AI agent on the Stellar network to start accepting payments and providing services.
-        </p>
-        <button className="btn btn-primary" onClick={openRegisterModal}>
-          <Plus size={14} />
-          Register Your First Agent
-        </button>
-      </div>
-    </>
-  );
+          <div className="panel" style={{ textAlign: 'center', padding: '60px 40px' }}>
+            <Bot size={64} color="var(--accent)" style={{ marginBottom: '20px' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '12px' }}>No Agents Found for Your Wallet</h3>
+            <p style={{ color: 'var(--muted)', marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
+              You have {agents.length} registered agent{agents.length !== 1 ? 's' : ''} in the marketplace, but none match your current wallet address.
+              <br/><br/>
+              <span style={{ fontSize: '12px' }}>
+                Connected: {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'None'}
+              </span>
+            </p>
+            <button className="btn btn-primary" onClick={openRegisterModal}>
+              <Plus size={14} />
+              Register New Agent
+            </button>
+          </div>
+        </>
+      );
+    } else if (userAgents.length === 0) {
+      return (
+        <>
+          <div className="page-header">
+            <div>
+              <div className="page-title">My Agents</div>
+              <div className="page-sub">// REGISTER AND MANAGE YOUR AI AGENTS</div>
+            </div>
+            <button className="btn btn-primary" onClick={openRegisterModal}>
+              <Plus size={12} />
+              Register Agent
+            </button>
+          </div>
+
+          <div className="panel" style={{ textAlign: 'center', padding: '60px 40px' }}>
+            <Bot size={64} color="var(--accent)" style={{ marginBottom: '20px' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '12px' }}>No Agents Registered</h3>
+            <p style={{ color: 'var(--muted)', marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
+              Register your AI agent on the Stellar network to start accepting payments and providing services.
+            </p>
+            <button className="btn btn-primary" onClick={openRegisterModal}>
+              <Plus size={14} />
+              Register Your First Agent
+            </button>
+          </div>
+        </>
+      );
+    }
+    
+    // Show all user's agents
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <div className="page-title">My Agents</div>
+            <div className="page-sub">// {userAgents.length} AGENT{userAgents.length !== 1 ? 'S' : ''} REGISTERED</div>
+          </div>
+          <button className="btn btn-primary" onClick={openRegisterModal}>
+            <Plus size={12} />
+            Register Agent
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {userAgents.map((agent: any) => {
+            const agentServices = services.filter((s: any) => s.agentId === agent.id);
+            return (
+              <div key={agent.id} className="panel" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '20px' }}>
+                  <div className="agent-avatar" style={{ width: '56px', height: '56px', fontSize: '20px' }}>
+                    {agent.name?.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>{agent.name}</h3>
+                    <div style={{ color: 'var(--accent)', fontSize: '13px' }}>{agent.status || 'ACTIVE'}</div>
+                    {agent.description && (
+                      <p style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '8px' }}>{agent.description}</p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button 
+                      className="btn" 
+                      style={{ border: '1px solid var(--border)', background: 'transparent', padding: '8px 16px' }}
+                      onClick={() => {
+                        // Configure action - could open a modal
+                        console.log('Configure agent:', agent.id);
+                      }}
+                    >
+                      Configure
+                    </button>
+                    {agentServices.length === 0 && (
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ padding: '8px 16px' }}
+                        onClick={() => {
+                          // Add service for this specific agent
+                          setShowRegisterModal(true);
+                          setRegisterStep(2);
+                        }}
+                      >
+                        <Plus size={12} />
+                        Add Service
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                  <div style={{ background: 'var(--surface2)', padding: '12px', borderRadius: '6px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', marginBottom: '4px' }}>PRICING MODEL</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{agent.pricingmodel || 'PER_CALL'}</div>
+                  </div>
+                  <div style={{ background: 'var(--surface2)', padding: '12px', borderRadius: '6px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', marginBottom: '4px' }}>PRICE PER CALL</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>${agent.pricepercall || '0.00'}</div>
+                  </div>
+                  <div style={{ background: 'var(--surface2)', padding: '12px', borderRadius: '6px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', marginBottom: '4px' }}>SERVICES</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{agentServices.length}</div>
+                  </div>
+                  <div style={{ background: 'var(--surface2)', padding: '12px', borderRadius: '6px' }}>
+                    <div style={{ color: 'var(--muted)', fontSize: '10px', marginBottom: '4px' }}>TOTAL CALLS</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{agentServices.reduce((sum, s) => sum + (s.totalCalls || 0), 0)}</div>
+                  </div>
+                </div>
+
+                {/* Services for this agent */}
+                {agentServices.length > 0 && (
+                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--muted)' }}>SERVICES</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                      {agentServices.map((service: any) => (
+                        <div key={service.id} style={{ background: 'var(--surface2)', padding: '16px', borderRadius: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 600 }}>{service.name}</div>
+                            <div style={{ 
+                              background: service.isActive ? 'rgba(46, 204, 113, 0.2)' : 'rgba(255, 107, 53, 0.2)',
+                              color: service.isActive ? '#2ecc71' : '#ff6b35',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10px'
+                            }}>
+                              {service.isActive ? 'ACTIVE' : 'INACTIVE'}
+                            </div>
+                          </div>
+                          {service.description && (
+                            <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px' }}>{service.description}</div>
+                          )}
+                          <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--muted)' }}>
+                            <span>${service.pricepercall} / call</span>
+                            <span>{service.totalCalls || 0} calls</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {agentServices.length === 0 && (
+                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+                    <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '12px' }}>No services yet</p>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ padding: '8px 16px' }}
+                      onClick={() => {
+                        setShowRegisterModal(true);
+                        setRegisterStep(2);
+                      }}
+                    >
+                      <Plus size={12} />
+                      Add Service
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  };
 
   const renderServices = () => (
     <>
@@ -1323,7 +1571,7 @@ export default function DashboardPage() {
           <div className="page-title">Services</div>
           <div className="page-sub">// MARKETPLACE SERVICES</div>
         </div>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => { setShowRegisterModal(true); setRegisterStep(2); }}>
           <Plus size={12} />
           Add Service
         </button>
@@ -1400,7 +1648,7 @@ export default function DashboardPage() {
           <div className="panel-title">Active Escrows</div>
           <div className="panel-meta">USDC LOCKED</div>
         </div>
-        {demoEscrow.map((escrow, i) => (
+        {displayEscrow.map((escrow, i) => (
           <div key={i} className="escrow-row">
             <div className="escrow-label">{escrow.name}</div>
             <div className="escrow-bar-wrap">
@@ -1424,7 +1672,7 @@ export default function DashboardPage() {
 
 
   const renderDiscover = () => {
-    const discoveredAgents = agents.length > 0 ? agents : demoAgents;
+    const discoveredAgents = agents;
     
     return (
       <>
@@ -1647,6 +1895,8 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+
     </>
   );
 
@@ -1896,24 +2146,46 @@ export default function DashboardPage() {
               <>
                 {registerStep === 1 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Agent Name</label>
-                      <input
-                        type="text"
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem 1rem',
-                          background: 'var(--bg)',
-                          border: '1px solid var(--border)',
-                          borderRadius: '6px',
-                          color: 'var(--text)',
-                          fontSize: '0.95rem',
-                          outline: 'none',
-                        }}
-                        value={agentData.name}
-                        onChange={(e) => setAgentData({ ...agentData, name: e.target.value })}
-                        placeholder="e.g., DataAnalysisBot"
-                      />
+                    {/* Basic Info */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Agent Name *</label>
+                        <input
+                          type="text"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                          }}
+                          value={agentData.name}
+                          onChange={(e) => setAgentData({ ...agentData, name: e.target.value })}
+                          placeholder="e.g., DataAnalysisBot"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Support Email</label>
+                        <input
+                          type="email"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                          }}
+                          value={agentData.supportEmail}
+                          onChange={(e) => setAgentData({ ...agentData, supportEmail: e.target.value })}
+                          placeholder="support@example.com"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Description</label>
@@ -1935,6 +2207,220 @@ export default function DashboardPage() {
                         placeholder="What does your agent do?"
                       />
                     </div>
+                    
+                    {/* API Configuration */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>API Configuration</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>API Endpoint</label>
+                          <input
+                            type="url"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.apiEndpoint}
+                            onChange={(e) => setAgentData({ ...agentData, apiEndpoint: e.target.value })}
+                            placeholder="https://api.example.com"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>API Key</label>
+                          <input
+                            type="password"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.apiKey}
+                            onChange={(e) => setAgentData({ ...agentData, apiKey: e.target.value })}
+                            placeholder="sk-..."
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Documentation URL</label>
+                          <input
+                            type="url"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.documentationUrl}
+                            onChange={(e) => setAgentData({ ...agentData, documentationUrl: e.target.value })}
+                            placeholder="https://docs.example.com"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Webhook URL</label>
+                          <input
+                            type="url"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.webhookUrl}
+                            onChange={(e) => setAgentData({ ...agentData, webhookUrl: e.target.value })}
+                            placeholder="https://your-server.com/webhook"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Capabilities & Pricing */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>Capabilities & Pricing</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Capabilities</label>
+                          <input
+                            type="text"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.capabilities}
+                            onChange={(e) => setAgentData({ ...agentData, capabilities: e.target.value })}
+                            placeholder="text-generation, image-analysis"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Pricing Model</label>
+                          <select
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.pricingModel}
+                            onChange={(e) => setAgentData({ ...agentData, pricingModel: e.target.value })}
+                          >
+                            <option value="PER_CALL">Per Call</option>
+                            <option value="SUBSCRIPTION">Subscription</option>
+                            <option value="ENTERPRISE">Enterprise</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Price per Call (USDC)</label>
+                          <input
+                            type="number"
+                            step="0.0000001"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.pricePerCall}
+                            onChange={(e) => setAgentData({ ...agentData, pricePerCall: e.target.value })}
+                            placeholder="0.50"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Additional Info */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Logo URL</label>
+                          <input
+                            type="url"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.logoUrl}
+                            onChange={(e) => setAgentData({ ...agentData, logoUrl: e.target.value })}
+                            placeholder="https://example.com/logo.png"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Website URL</label>
+                          <input
+                            type="url"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.websiteUrl}
+                            onChange={(e) => setAgentData({ ...agentData, websiteUrl: e.target.value })}
+                            placeholder="https://example.com"
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Terms of Service URL</label>
+                          <input
+                            type="url"
+                            style={{
+                              width: '100%',
+                              padding: '0.5rem 0.75rem',
+                              background: 'var(--bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '6px',
+                              color: 'var(--text)',
+                              fontSize: '0.85rem',
+                              outline: 'none',
+                            }}
+                            value={agentData.termsOfServiceUrl}
+                            onChange={(e) => setAgentData({ ...agentData, termsOfServiceUrl: e.target.value })}
+                            placeholder="https://example.com/tos"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
                     <button
                       onClick={handleRegisterAgent}
                       disabled={registerLoading || !agentData.name}
@@ -2008,6 +2494,172 @@ export default function DashboardPage() {
                         <option value="RESEARCH">Research</option>
                         <option value="CUSTOM">Custom</option>
                       </select>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Endpoint Path</label>
+                        <input
+                          type="text"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                          }}
+                          value={serviceData.endpoint}
+                          onChange={(e) => setServiceData({ ...serviceData, endpoint: e.target.value })}
+                          placeholder="/api/v1/analyze"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>HTTP Method</label>
+                        <select
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                          }}
+                          value={serviceData.method}
+                          onChange={(e) => setServiceData({ ...serviceData, method: e.target.value })}
+                        >
+                          <option value="GET">GET</option>
+                          <option value="POST">POST</option>
+                          <option value="PUT">PUT</option>
+                          <option value="DELETE">DELETE</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Rate Limit (req/min)</label>
+                        <input
+                          type="number"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                          }}
+                          value={serviceData.rateLimit}
+                          onChange={(e) => setServiceData({ ...serviceData, rateLimit: e.target.value })}
+                          placeholder="60"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Timeout (seconds)</label>
+                        <input
+                          type="number"
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                          }}
+                          value={serviceData.timeout}
+                          onChange={(e) => setServiceData({ ...serviceData, timeout: e.target.value })}
+                          placeholder="30"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Response Format</label>
+                        <select
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '6px',
+                            color: 'var(--text)',
+                            fontSize: '0.95rem',
+                            outline: 'none',
+                          }}
+                          value={serviceData.responseFormat}
+                          onChange={(e) => setServiceData({ ...serviceData, responseFormat: e.target.value })}
+                        >
+                          <option value="JSON">JSON</option>
+                          <option value="XML">XML</option>
+                          <option value="TEXT">Text</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Retry Policy (JSON)</label>
+                      <textarea
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          background: 'var(--bg)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          color: 'var(--text)',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          resize: 'vertical',
+                          fontFamily: 'monospace',
+                        }}
+                        value={serviceData.retryPolicy}
+                        onChange={(e) => setServiceData({ ...serviceData, retryPolicy: e.target.value })}
+                        placeholder='{"maxRetries": 3, "backoff": "exponential"}'
+                        rows={2}
+                      />
+                    </div>
+                    <div style={{ marginTop: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>API Schema (JSON)</label>
+                      <textarea
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          background: 'var(--bg)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          color: 'var(--text)',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          resize: 'vertical',
+                          fontFamily: 'monospace',
+                        }}
+                        value={serviceData.schema}
+                        onChange={(e) => setServiceData({ ...serviceData, schema: e.target.value })}
+                        placeholder='{"type": "object", "properties": {...}}'
+                        rows={3}
+                      />
+                    </div>
+                    <div style={{ marginTop: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>Usage Examples</label>
+                      <textarea
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem 1rem',
+                          background: 'var(--bg)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '6px',
+                          color: 'var(--text)',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          resize: 'vertical',
+                        }}
+                        value={serviceData.usageExamples}
+                        onChange={(e) => setServiceData({ ...serviceData, usageExamples: e.target.value })}
+                        placeholder={`curl -X POST https://api.example.com/v1/analyze -d '{"data": "test"}'`}
+                        rows={3}
+                      />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                       <div>
