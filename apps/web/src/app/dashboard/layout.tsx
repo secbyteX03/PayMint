@@ -69,13 +69,16 @@ export default function DashboardLayout({ children }: LayoutProps) {
   };
 
   const navItems = [
+    { section: 'NAVIGATION', icon: null, label: '', href: '' },
     { icon: Home, label: 'Dashboard', href: '/dashboard' },
     { icon: Bot, label: 'My Agents', href: '/dashboard/agents' },
     { icon: Code, label: 'Services', href: '/dashboard/services' },
-    { icon: ShoppingCart, label: 'Discover', href: '/dashboard/discover' },
     { icon: CreditCard, label: 'Payments', href: '/dashboard/payments' },
     { icon: ShieldCheck, label: 'Escrow', href: '/dashboard/escrow' },
+    { section: 'MARKETPLACE', icon: null, label: '', href: '' },
+    { icon: ShoppingCart, label: 'Discover', href: '/dashboard/discover' },
     { icon: Link, label: 'Integrations', href: '/dashboard/integrations' },
+    { section: 'ACCOUNT', icon: null, label: '', href: '' },
     { icon: User, label: 'Profile', href: '/dashboard/profile' },
   ];
 
@@ -314,10 +317,88 @@ export default function DashboardLayout({ children }: LayoutProps) {
           flex-shrink: 0;
         }
 
+        .nav-section-label {
+          font-family: var(--mono);
+          font-size: 9px;
+          color: var(--muted);
+          letter-spacing: 2px;
+          padding: 12px 20px 6px;
+        }
+
+        .nav-badge {
+          margin-left: auto;
+          font-family: var(--mono);
+          font-size: 9px;
+          background: rgba(0,210,255,0.15);
+          color: var(--accent);
+          padding: 2px 6px;
+          border-radius: 3px;
+        }
+
+        .agent-chip {
+          background: var(--surface2);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 10px 12px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+        }
+
+        .agent-avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--accent2), var(--accent));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 700;
+          color: white;
+          flex-shrink: 0;
+        }
+
+        .agent-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .agent-name {
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .agent-status {
+          font-family: var(--mono);
+          font-size: 9px;
+          color: var(--accent3);
+        }
+
         .sidebar-footer {
           margin-top: auto;
           padding: 16px;
           border-top: 1px solid var(--border);
+        }
+
+        .current-agent {
+          background: var(--surface2);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 12px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+        }
+
+        .current-agent:hover {
+          border-color: var(--border2);
         }
 
         .current-agent {
@@ -802,15 +883,19 @@ export default function DashboardLayout({ children }: LayoutProps) {
 
         {/* Sidebar */}
         <nav className="dashboard-sidebar">
-          {navItems.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className={`nav-item ${isActive(item.href) ? 'active' : ''}`}
-            >
-              <item.icon className="nav-icon" size={18} />
-              {sidebarOpen && item.label}
-            </a>
+          {navItems.map((item, index) => (
+            item.section ? (
+              <div key={item.section} className="nav-section-label">{item.section}</div>
+            ) : (
+              <a
+                key={item.href}
+                href={item.href}
+                className={`nav-item ${isActive(item.href) ? 'active' : ''}`}
+              >
+                {item.icon && <item.icon className="nav-icon" size={18} />}
+                {sidebarOpen && item.label}
+              </a>
+            )
           ))}
           
           {currentAgent && sidebarOpen && (

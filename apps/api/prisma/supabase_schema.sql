@@ -1,6 +1,4 @@
 -- Create AgentPay tables in Supabase
--- Drop existing tables first (run this separately if needed: DROP TABLE IF EXISTS transactions CASCADE; etc.)
-
 -- Agents table
 CREATE TABLE IF NOT EXISTS agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

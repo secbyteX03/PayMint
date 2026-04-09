@@ -96,6 +96,8 @@ export default function Register() {
       });
       
       if (response.data.id) {
+        // Store the new agent ID for service registration
+        sessionStorage.setItem('lastAgentId', response.data.id);
         setSuccessMessage('Agent registered successfully! You can now add a service.');
         setStep(2);
       }

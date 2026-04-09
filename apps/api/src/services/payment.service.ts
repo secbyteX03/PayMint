@@ -1,4 +1,4 @@
-import { paymentDb, serviceDb, agentDb, Payment } from '../config/inMemoryDb';
+import { supabase } from '../config/prisma';
 
 export class PaymentService {
   async createPayment(
@@ -6,45 +6,75 @@ export class PaymentService {
     buyerAddress: string,
     amount: number,
     currency: string
-  ): Promise<Payment> {
+  ) {
     // Verify service exists and is active
-    const service = serviceDb.findById(serviceId);
+    const { data: service, error: serviceError } = await supabase
+      .from('services')
+      .select('*, agents(*)')
+      .eq('id', serviceId)
+      .single();
 
-    if (!service || !service.isActive) {
+    if (serviceError || !service || !service.isActive) {
       throw new Error('Service not found or not active');
     }
 
-    const agent = agentDb.findById(service.agentId);
-    if (!agent) throw new Error('Agent not found');
+    const { data: agent, error: agentError } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('id', service.agentId)
+      .single();
+
+    if (agentError || !agent) {
+      throw new Error('Agent not found');
+    }
 
     // Create payment record
-    return paymentDb.create({
-      serviceId,
-      buyerAddress,
-      sellerAddress: agent.ownerAddress,
-      amount,
-      currency,
-      status: 'PENDING',
-      transactionHash: null,
-    });
+    const { data, error } = await supabase
+      .from('payments')
+      .insert({
+        serviceId,
+        buyerAddress,
+        sellerAddress: agent.ownerAddress,
+        amount,
+        currency,
+        status: 'PENDING',
+      })
+      .select('*, services(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
   }
 
-  async getPayment(id: string): Promise<Payment | null> {
-    const payment = paymentDb.findById(id);
-    if (!payment) return null;
-    
-    const service = serviceDb.findById(payment.serviceId);
-    return { ...payment, service } as any;
+  async getPayment(id: string) {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*, services(*)')
+      .eq('id', id)
+      .single();
+
+    if (error) return null;
+    return data;
   }
 
-  async getPaymentsByService(serviceId: string): Promise<Payment[]> {
-    return paymentDb.findByServiceId(serviceId);
+  async getPaymentsByService(serviceId: string) {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*, services(*)')
+      .eq('serviceId', serviceId);
+
+    if (error) throw new Error(error.message);
+    return data || [];
   }
 
-  async releasePayment(paymentId: string, transactionHash: string): Promise<Payment> {
-    const payment = paymentDb.findById(paymentId);
+  async releasePayment(paymentId: string, transactionHash: string) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
 
-    if (!payment) {
+    if (fetchError || !payment) {
       throw new Error('Payment not found');
     }
 
@@ -53,23 +83,43 @@ export class PaymentService {
     }
 
     // Update payment status
-    const updated = paymentDb.update(paymentId, {
-      status: 'COMPLETED',
-      transactionHash,
-    });
+    const { data: updated, error } = await supabase
+      .from('payments')
+      .update({
+        status: 'COMPLETED',
+        transactionHash,
+      })
+      .eq('id', paymentId)
+      .select('*, services(*)')
+      .single();
 
-    if (!updated) throw new Error('Failed to update payment');
+    if (error) throw new Error(error.message);
 
     // Increment service call count
-    serviceDb.incrementCalls(payment.serviceId);
+    const { data: service } = await supabase
+      .from('services')
+      .select('totalCalls')
+      .eq('id', payment.serviceId)
+      .single();
+
+    if (service) {
+      await supabase
+        .from('services')
+        .update({ totalCalls: (service.totalCalls || 0) + 1 })
+        .eq('id', payment.serviceId);
+    }
 
     return updated;
   }
 
-  async refundPayment(paymentId: string, reason?: string): Promise<Payment> {
-    const payment = paymentDb.findById(paymentId);
+  async refundPayment(paymentId: string, reason?: string) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
 
-    if (!payment) {
+    if (fetchError || !payment) {
       throw new Error('Payment not found');
     }
 
@@ -77,32 +127,39 @@ export class PaymentService {
       throw new Error('Payment already processed');
     }
 
-    const updated = paymentDb.update(paymentId, {
-      status: 'REFUNDED',
-    });
+    const { data: updated, error } = await supabase
+      .from('payments')
+      .update({
+        status: 'REFUNDED',
+      })
+      .eq('id', paymentId)
+      .select('*, services(*)')
+      .single();
 
-    if (!updated) throw new Error('Failed to update payment');
-
+    if (error) throw new Error(error.message);
     return updated;
   }
 
-  async getPaymentStats(serviceId: string): Promise<{
-    totalPayments: number;
-    completedPayments: number;
-    totalRevenue: string;
-  }> {
-    const payments = paymentDb.findByServiceId(serviceId);
+  async getPaymentStats(serviceId: string) {
+    const { data: payments, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('serviceId', serviceId);
 
-    const completedPayments = payments.filter((p) => p.status === 'COMPLETED');
+    if (error) throw new Error(error.message);
+
+    const completedPayments = (payments || []).filter((p) => p.status === 'COMPLETED');
     const totalRevenue = completedPayments.reduce(
-      (sum, p) => sum + p.amount,
+      (sum: number, p) => sum + Number(p.amount),
       0
     ).toString();
 
     return {
-      totalPayments: payments.length,
+      totalPayments: payments?.length || 0,
       completedPayments: completedPayments.length,
       totalRevenue,
     };
   }
 }
+
+export const paymentService = new PaymentService();

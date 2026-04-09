@@ -1,4 +1,4 @@
-import { serviceDb, agentDb } from '../config/inMemoryDb';
+import { supabase } from '../config/prisma';
 
 /**
  * x402 Payment Header Service
@@ -28,20 +28,25 @@ export class X402PaymentService {
     buyerAddress: string
   ): Promise<x402PaymentHeader> {
     // Get service details
-    const service = serviceDb.findById(serviceId);
+    const { data: service, error } = await supabase
+      .from('services')
+      .select('*, agents(*)')
+      .eq('id', serviceId)
+      .single();
 
-    if (!service || !service.isActive) {
+    if (error || !service || !service.isActive) {
       throw new Error('Service not found or not active');
     }
 
-    const agent = agentDb.findById(service.agentId);
-    if (!agent) throw new Error('Agent not found');
+    if (!service.agents) {
+      throw new Error('Agent not found');
+    }
 
     // Create x402 payment header
     const header: x402PaymentHeader = {
       scheme: 'stellar',
       amount: service.pricePerCall.toString(),
-      recipient: agent.ownerAddress,
+      recipient: service.agents.ownerAddress,
       description: `Payment for ${service.name}`,
       expires: Math.floor(Date.now() / 1000) + 3600, // 1 hour expiry
     };
@@ -56,22 +61,23 @@ export class X402PaymentService {
     header: x402PaymentHeader,
     serviceId: string
   ): Promise<boolean> {
-    const service = serviceDb.findById(serviceId);
+    const { data: service, error } = await supabase
+      .from('services')
+      .select('*, agents(*)')
+      .eq('id', serviceId)
+      .single();
 
-    if (!service) {
+    if (error || !service || !service.agents) {
       return false;
     }
 
-    const agent = agentDb.findById(service.agentId);
-    if (!agent) return false;
-
     // Verify recipient matches
-    if (header.recipient !== agent.ownerAddress) {
+    if (header.recipient !== service.agents.ownerAddress) {
       return false;
     }
 
     // Verify amount matches
-    if (parseFloat(header.amount) < service.pricePerCall) {
+    if (parseFloat(header.amount) < Number(service.pricePerCall)) {
       return false;
     }
 
@@ -98,14 +104,11 @@ export class X402PaymentService {
     quantity: number,
     discount?: number
   ): string {
-    let amount = basePrice * quantity;
-    
+    let total = basePrice * quantity;
     if (discount) {
-      amount = amount * (1 - discount / 100);
+      total = total * (1 - discount / 100);
     }
-    
-    // Ensure minimum amount (0.01 USDC)
-    return Math.max(amount, 0.01).toFixed(2);
+    return total.toFixed(7);
   }
 }
 

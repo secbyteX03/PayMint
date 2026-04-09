@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import NextLink from 'next/link';
 import { 
   Home,
   Bot, 
@@ -14,7 +15,6 @@ import {
   TrendingUp,
   Plus,
   Search,
-  Link,
   Settings,
   User,
   MessageSquare,
@@ -23,7 +23,8 @@ import {
   Globe,
   Zap,
   ArrowRight,
-  CheckCircle
+  CheckCircle,
+  ExternalLink
 } from 'lucide-react';
 import { useStellar } from '@/context/StellarContext';
 const dashboardStyles = `
@@ -1128,7 +1129,7 @@ export default function DashboardPage() {
   }, []);
 
   const handleNavClick = (section: string) => {
-    setActiveSection(section);
+    router.push(section === 'dashboard' ? '/dashboard' : `/dashboard/${section}`);
   };
 
   const openPlayground = () => {
@@ -2010,46 +2011,46 @@ export default function DashboardPage() {
         {/* SIDEBAR */}
         <div className="dashboard-sidebar">
           <div className="nav-section-label">NAVIGATION</div>
-          <div className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`} onClick={() => handleNavClick('dashboard')}>
+          <NextLink href="/dashboard" className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}>
             <Home size={16} className="nav-icon" />
             Dashboard
-          </div>
-          <div className={`nav-item ${activeSection === 'my-agent' ? 'active' : ''}`} onClick={() => handleNavClick('my-agent')}>
+          </NextLink>
+          <NextLink href="/dashboard/agents" className={`nav-item ${activeSection === 'my-agent' ? 'active' : ''}`}>
             <Bot size={16} className="nav-icon" />
             My Agent
-          </div>
-          <div className={`nav-item ${activeSection === 'services' ? 'active' : ''}`} onClick={() => handleNavClick('services')}>
+          </NextLink>
+          <NextLink href="/dashboard/services" className={`nav-item ${activeSection === 'services' ? 'active' : ''}`}>
             <ShoppingCart size={16} className="nav-icon" />
             Services
             {displayServices.length > 0 && <span className="nav-badge">{displayServices.length}</span>}
-          </div>
-          <div className={`nav-item ${activeSection === 'payments' ? 'active' : ''}`} onClick={() => handleNavClick('payments')}>
+          </NextLink>
+          <NextLink href="/dashboard/payments" className={`nav-item ${activeSection === 'payments' ? 'active' : ''}`}>
             <CreditCard size={16} className="nav-icon" />
             Payments
-          </div>
-          <div className={`nav-item ${activeSection === 'escrow' ? 'active' : ''}`} onClick={() => handleNavClick('escrow')}>
+          </NextLink>
+          <NextLink href="/dashboard/escrow" className={`nav-item ${activeSection === 'escrow' ? 'active' : ''}`}>
             <ShieldCheck size={16} className="nav-icon" />
             Escrow
-          </div>
+          </NextLink>
 
           <div className="nav-section-label">MARKETPLACE</div>
-          <div className={`nav-item ${activeSection === 'discover' ? 'active' : ''}`} onClick={() => handleNavClick('discover')}>
+          <NextLink href="/dashboard/discover" className={`nav-item ${activeSection === 'discover' ? 'active' : ''}`}>
             <Search size={16} className="nav-icon" />
             Discover
-          </div>
-          <div className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`} onClick={() => handleNavClick('integrations')}>
-            <Link size={16} className="nav-icon" />
+          </NextLink>
+          <NextLink href="/dashboard/integrations" className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`}>
+            <ExternalLink size={16} className="nav-icon" />
             Integrations
-          </div>
+          </NextLink>
 
           <div className="nav-section-label">ACCOUNT</div>
-          <div className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`} onClick={() => handleNavClick('profile')}>
+          <NextLink href="/dashboard/profile" className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}>
             <User size={16} className="nav-icon" />
             Profile
-          </div>
+          </NextLink>
 
           <div className="sidebar-footer">
-            <div className="agent-chip" onClick={() => handleNavClick('my-agent')}>
+            <NextLink href="/dashboard/agents" className="agent-chip">
               <div className="agent-avatar">
                 {displayAgents[0]?.name?.slice(0, 2) || 'AG'}
               </div>
@@ -2057,7 +2058,7 @@ export default function DashboardPage() {
                 <div className="agent-name">{displayAgents[0]?.name || 'AnalyticsBot-9'}</div>
                 <div className="agent-status">● ONLINE</div>
               </div>
-            </div>
+            </NextLink>
           </div>
         </div>
 

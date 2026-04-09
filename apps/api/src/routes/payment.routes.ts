@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { supabase } from '../config/prisma';
 import { PaymentService } from '../services/payment.service';
 import { x402Service } from '../services/x402.service';
 
@@ -94,6 +95,21 @@ router.get('/service/:serviceId', async (req: Request, res: Response) => {
   try {
     const payments = await paymentService.getPaymentsByService(req.params.serviceId);
     res.json(payments);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all payments
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*, service:services(*)')
+      .order('createdAt', { ascending: false });
+    
+    if (error) throw error;
+    res.json(data || []);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
