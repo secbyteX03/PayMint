@@ -5,6 +5,7 @@ import { isConnected, getPublicKey, getNetwork } from '@stellar/freighter-api';
 
 interface StellarContextType {
   address: string | null;
+  publicKey: string | null; // alias for address
   isConnected: boolean;
   network: string;
   loading: boolean;
@@ -181,6 +182,7 @@ export function StellarProvider({ children }: { children: React.ReactNode }) {
     <StellarContext.Provider
       value={{
         address,
+        publicKey: address,
         isConnected,
         network,
         loading,
@@ -200,6 +202,7 @@ export function useStellar(): StellarContextType {
     // Return default context if not wrapped with provider
     return {
       address: null,
+      publicKey: null,
       isConnected: false,
       network: 'testnet',
       loading: false,
@@ -212,7 +215,7 @@ export function useStellar(): StellarContextType {
 }
 
 // Helper function to shorten address for display
-export const shortenAddress = (addr: string): string => {
+export const shortenAddress = (addr: string | null): string => {
   if (!addr) return '';
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };

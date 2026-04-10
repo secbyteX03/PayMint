@@ -17,11 +17,18 @@ body {
   --secondary: #1a1a1a;
   --background: #000000;
   --surface: #0a0a0a;
+  --surface2: #151515;
   --border: #333333;
   --text: #ffffff;
   --text-secondary: #a0a0a0;
   --gold: #d4af37;
   --gold-light: #f4d03f;
+  
+  /* Accent colors for discover page */
+  --accent: #a855f7;
+  --accent2: #6366f1;
+  --accent3: #8b5cf6;
+  --muted: #9ca3af;
 }
 
 * {
