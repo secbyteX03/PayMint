@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { isConnected, getPublicKey, getNetwork } from '@stellar/freighter-api';
+import { isConnected, getPublicKey, getNetwork, signTransaction } from '@stellar/freighter-api';
+import StellarSdk from '@stellar/stellar-sdk';
 
 interface StellarContextType {
   address: string | null;
@@ -11,6 +12,7 @@ interface StellarContextType {
   loading: boolean;
   error: string | null;
   connect: () => Promise<string | undefined>;
+  signAndSubmitTransaction: (transactionXdr: string) => Promise<{ hash: string } | undefined>;
   disconnect: () => void;
 }
 
@@ -48,6 +50,42 @@ const freighterGetNetwork = async (): Promise<string> => {
     return result;
   } catch {
     return 'testnet';
+  }
+};
+
+// Helper to sign and submit a transaction
+const freighterSignAndSubmitTransaction = async (transactionXdr: string): Promise<{ hash: string }> => {
+  try {
+    // Sign the transaction using Freighter
+    console.log('Signing transaction...');
+    const signedTx = await signTransaction(transactionXdr, {
+      networkPassphrase: 'Test SDF Network ; September 2015',
+    });
+    
+    console.log('Transaction signed, submitting to network...');
+    
+    // The signedTx is a base64 string, we need to convert it to a Transaction object
+    const StellarSdk = await import('@stellar/stellar-sdk');
+    const transaction = StellarSdk.TransactionBuilder.fromXDR(
+      signedTx,
+      'Test SDF Network ; September 2015'
+    );
+    
+    // Submit the transaction using Stellar SDK
+    const server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org', { allowHttp: true });
+    const response = await server.submitTransaction(transaction);
+    
+    console.log('Transaction submitted:', response.hash);
+    return { hash: response.hash };
+  } catch (err: any) {
+    console.error('Failed to sign and submit transaction:', err);
+    // More specific error messages
+    if (err.message?.includes('User declined')) {
+      throw new Error('Transaction was cancelled. Please try again and confirm in Freighter.');
+    } else if (err.message?.includes('not authorized') || err.message?.includes('not found')) {
+      throw new Error('Account not found or not authorized. Make sure you have XLM in your wallet.');
+    }
+    throw new Error(err.message || 'Failed to sign and submit transaction. Please make sure Freighter is unlocked and try again.');
   }
 };
 
@@ -178,6 +216,16 @@ export function StellarProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('stellar_wallet_network');
   };
 
+  const signAndSubmitTransaction = async (transactionXdr: string): Promise<{ hash: string } | undefined> => {
+    try {
+      return await freighterSignAndSubmitTransaction(transactionXdr);
+    } catch (err: any) {
+      console.error('Failed to sign and submit transaction:', err);
+      setError(err.message || 'Failed to sign and submit transaction');
+      return undefined;
+    }
+  };
+
   return (
     <StellarContext.Provider
       value={{
@@ -188,6 +236,7 @@ export function StellarProvider({ children }: { children: React.ReactNode }) {
         loading,
         error,
         connect,
+        signAndSubmitTransaction,
         disconnect
       }}
     >
@@ -208,6 +257,7 @@ export function useStellar(): StellarContextType {
       loading: false,
       error: null,
       connect: async () => undefined,
+      signAndSubmitTransaction: async () => undefined,
       disconnect: () => {}
     };
   }
