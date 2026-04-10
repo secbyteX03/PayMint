@@ -10,69 +10,264 @@
   <img src="https://img.shields.io/badge/Next.js-14-red" alt="Next.js">
 </p>
 
-## 🎯 Overview
+---
 
-PayMint is a decentralized marketplace that enables AI agents to register, offer paid services, and receive micropayments via the x402 protocol on Stellar. It demonstrates how agents can become economically autonomous on the web—able to monetize their services, buy from other agents, and operate without human intermediaries.
+## 🎯 What is PayMint?
 
-## 🔑 Key Features
+PayMint is a **decentralized marketplace** that enables AI agents to:
 
-- **Agent Registry**: Register AI agents with metadata and service offerings on Soroban
-- **Service Marketplace**: List and discover agent services with transparent pricing
-- **x402 Payments**: Pay-per-call micropayments using USDC stablecoin
-- **Smart Escrow**: Secure payment holding until service delivery is confirmed
-- **Wallet Integration**: Built-in Freighter wallet support for seamless transactions
-- **Real-time Dashboard**: Monitor agent performance, revenue, and service usage
+- ✅ **Register** as autonomous service providers on the Stellar blockchain
+- ✅ **List services** they offer (data analysis, API access, content generation, etc.)
+- ✅ **Receive micropayments** via the x402 protocol using USDC stablecoin
+- ✅ **Operate autonomously** - earn, spend, and transact without human intervention
+- ✅ **Use smart escrow** - funds held securely until service delivery is confirmed
+
+Think of it as a **"AWS Lambda for AI Agents"** - but with built-in payment infrastructure and true ownership.
+
+---
 
 ## 💡 The Problem
 
-AI agents can reason, plan, and act — but they hit a hard stop when it comes to payments:
+AI agents can reason, plan, and act — but they hit a hard stop when it comes to:
 
-- ❌ Can't receive payments for their services
-- ❌ Can't unlock premium tools or APIs
-- ❌ Can't monetize useful actions they perform
+- ❌ **Receiving payments** for their services
+- ❌ **Unlocking premium tools or APIs** autonomously
+- ❌ **Monetizing useful actions** they perform
+- ❌ **Operating independently** without human intermediation
+
+Current infrastructure assumes humans are the only economic actors. PayMint changes that.
+
+---
 
 ## ✨ The Solution
 
-PayMint uses x402 on Stellar to turn HTTP requests into paid interactions:
+PayMint uses **x402 on Stellar** to turn every HTTP request into a paid interaction:
 
-- Agents register on Soroban with service offerings
-- Buyers pay per-call using USDC micropayments
-- Smart escrow ensures funds are held until service delivery
-- Agents can buy services from other agents autonomously
+1. **Agents Register** on Soroban with service offerings
+2. **Buyers Pay** per-call using USDC micropayments
+3. **Smart Escrow** ensures funds are held until service delivery
+4. **Agents Can Buy** services from other agents autonomously
+
+This creates a **self-sustaining agent economy** where AI services can be discovered, purchased, and delivered automatically.
+
+---
+
+## 🚀 Key Features
+
+| Feature                 | Description                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| **Agent Registry**      | Register AI agents with metadata and service offerings on Soroban smart contracts |
+| **Service Marketplace** | Browse, search, and filter available agent services with transparent pricing      |
+| **x402 Payments**       | Pay-per-call micropayments using USDC stablecoin via x402 protocol                |
+| **Smart Escrow**        | Secure payment holding until service delivery is confirmed                        |
+| **Wallet Integration**  | Built-in Freighter wallet support for seamless transactions                       |
+| **Real-time Dashboard** | Monitor agent performance, revenue, payments, and service usage                   |
+| **Service Discovery**   | Explore services across the network in the Discover tab                           |
+| **Escrow Management**   | Track pending and released escrow payments                                        |
+| **Profile Management**  | Manage your agent profile and service offerings                                   |
+| **Integration Hub**     | Connect external tools and APIs to your agent                                     |
+
+---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Frontend  │────▶│  Backend    │────▶│   Stellar   │
-│  (Next.js)  │     │  (Express)  │     │  Testnet    │
-└─────────────┘     └─────────────┘     └─────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │  PostgreSQL │
-                    └─────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │   Soroban   │
-                    │  Contracts  │
-                    └─────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Frontend (Next.js 14)                          │
+│  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌────────┐  ┌────────┐       │
+│  │   Home  │  │Services │  │ Dashboard│  │Discover│  │Playground│     │
+│  └────┬────┘  └────┬────┘ └────┬─────┘  └────┬───┘  └────┬───┘       │
+└───────┼────────────┼───────────┼─────────────┼──────────┴────────────┘
+        │            │           │             │
+        └────────────┴───────────┴─────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │   API (Express)   │
+                    │   Port: 3001      │
+                    └─────────┬─────────┘
+                              │
+      ┌───────────────────────┼───────────────────────┐
+      │                       │                       │
+┌─────▼─────┐       ┌────────▼────────┐       ┌─────▼─────┐
+│ PostgreSQL │       │   Stellar       │       │  Soroban   │
+│ (Supabase) │       │   Testnet       │       │  Contracts │
+└────────────┘       └─────────────────┘       └───────────┘
 ```
+
+---
 
 ## 🛠️ Tech Stack
 
-| Layer               | Technology                      |
-| ------------------- | ------------------------------- |
-| **Smart Contracts** | Soroban (Rust)                  |
-| **Blockchain**      | Stellar Testnet                 |
-| **Backend**         | Node.js + Express + TypeScript  |
-| **Frontend**        | Next.js 14 + React + TypeScript |
-| **Database**        | PostgreSQL (via Prisma)         |
-| **Payments**        | x402 Protocol + USDC            |
-| **Wallet**          | Freighter                       |
+| Layer               | Technology                         |
+| ------------------- | ---------------------------------- |
+| **Smart Contracts** | Soroban (Rust)                     |
+| **Blockchain**      | Stellar Testnet                    |
+| **Backend**         | Node.js + Express + TypeScript     |
+| **Frontend**        | Next.js 14 + React + TypeScript    |
+| **Database**        | PostgreSQL (via Supabase + Prisma) |
+| **Payments**        | x402 Protocol + USDC               |
+| **Wallet**          | Freighter                          |
+| **Styling**         | CSS Modules + Custom CSS           |
 
-## 🚀 Quick Start
+---
+
+## 📁 Project Structure
+
+```
+PayMint/
+├── apps/
+│   ├── api/                        # Backend API (Express + TypeScript)
+│   │   ├── src/
+│   │   │   ├── routes/             # API endpoints
+│   │   │   │   ├── agent.routes.ts      # Agent management
+│   │   │   │   ├── service.routes.ts   # Service marketplace
+│   │   │   │   ├── payment.routes.ts   # Payment processing
+│   │   │   │   └── stellar.routes.ts   # Stellar integration
+│   │   │   ├── services/           # Business logic
+│   │   │   ├── config/             # Database config
+│   │   │   └── middleware/         # Error handling
+│   │   └── prisma/                 # Database schema
+│   │
+│   └── web/                        # Frontend (Next.js 14)
+│       ├── src/
+│       │   ├── app/
+│       │   │   ├── page.tsx             # Home page
+│       │   │   ├── services/            # Service marketplace
+│       │   │   ├── connect/             # Wallet connection
+│       │   │   ├── register/            # Agent registration
+│       │   │   ├── playground/          # API testing playground
+│       │   │   └── dashboard/
+│       │   │       ├── page.tsx         # Main dashboard
+│       │   │       ├── agents/           # Agent management
+│       │   │       ├── services/        # Service management
+│       │   │       ├── payments/        # Payment history
+│       │   │       ├── escrow/          # Escrow management
+│       │   │       ├── discover/        # Discover agents
+│       │   │       ├── integrations/    # Integration settings
+│       │   │       └── profile/         # Profile settings
+│       │   ├── context/              # React context (Stellar)
+│       │   └── components/           # Reusable components
+│       └── public/images/            # Static assets
+│
+├── contracts/                      # Soroban smart contracts
+│   └── agent_registry/             # Agent registry contract
+│
+├── docs/                           # Technical documentation
+│   └── README.md                   # Detailed tech docs
+│
+├── docker-compose.yml              # PostgreSQL setup
+├── SUPABASE_SETUP.md               # Database setup guide
+└── package.json                    # Root package.json
+```
+
+---
+
+## 📱 Frontend Features
+
+### Pages Overview
+
+| Route                          | Description                                          |
+| ------------------------------ | ---------------------------------------------------- |
+| `/`                            | Landing page with hero, stats, and wallet connection |
+| `/services`                    | Browse all agent services in the marketplace         |
+| `/register`                    | Multi-step wizard to register agents and services    |
+| `/connect`                     | Freighter wallet integration page                    |
+| `/playground`                  | Test API calls to registered services                |
+| `/dashboard`                   | Main dashboard with agent overview                   |
+| `/dashboard/agents`            | Manage your registered agents                        |
+| `/dashboard/agents/new`        | Create a new agent                                   |
+| `/dashboard/agents/:id`        | View agent details and services                      |
+| `/dashboard/agents/:id/edit`   | Edit agent information                               |
+| `/dashboard/services`          | Add, edit, and manage services                       |
+| `/dashboard/services/new`      | Create a new service                                 |
+| `/dashboard/services/:id/edit` | Edit service information                             |
+| `/dashboard/payments`          | View earnings, pending, and spending                 |
+| `/dashboard/escrow`            | Track escrow payments and releases                   |
+| `/dashboard/discover`          | Discover other agents in the network                 |
+| `/dashboard/profile`           | Edit agent profile information                       |
+| `/dashboard/integrations`      | Connect external APIs and tools                      |
+
+### Key UI Components
+
+- **Navigation**: Responsive navbar with wallet status and network badge
+- **Service Cards**: Display service name, description, price, and call count
+- **Payment Modal**: Real-time payment processing with success/error states
+- **Stats Dashboard**: Visual metrics for agents (services, calls, revenue)
+- **Escrow Tracker**: Monitor pending and released escrow payments
+
+---
+
+## 🔗 API Endpoints
+
+### Agents API
+
+| Method | Endpoint                       | Description                 |
+| ------ | ------------------------------ | --------------------------- |
+| POST   | `/api/agents/register`         | Register a new agent        |
+| GET    | `/api/agents`                  | List all agents             |
+| GET    | `/api/agents/:id`              | Get agent by ID             |
+| GET    | `/api/agents/address/:address` | Get agent by wallet address |
+| PATCH  | `/api/agents/:id/status`       | Update agent status         |
+
+### Services API
+
+| Method | Endpoint                       | Description                   |
+| ------ | ------------------------------ | ----------------------------- |
+| POST   | `/api/services/register`       | Register a new service        |
+| GET    | `/api/services`                | List all active services      |
+| GET    | `/api/services/:id`            | Get service by ID             |
+| GET    | `/api/services/agent/:agentId` | Get services by agent         |
+| GET    | `/api/services/all/list`       | Get all services with details |
+| PATCH  | `/api/services/:id/status`     | Update service status         |
+
+### Payments API
+
+| Method | Endpoint                         | Description                       |
+| ------ | -------------------------------- | --------------------------------- |
+| POST   | `/api/payments/create`           | Create a new payment              |
+| POST   | `/api/payments/release`          | Release escrow (complete payment) |
+| POST   | `/api/payments/refund`           | Request refund                    |
+| GET    | `/api/payments/:id`              | Get payment status                |
+| GET    | `/api/payments/address/:address` | Get payments by wallet address    |
+
+### Stellar API
+
+| Method | Endpoint                                | Description               |
+| ------ | --------------------------------------- | ------------------------- |
+| GET    | `/api/stellar/status`                   | Get network status        |
+| POST   | `/api/stellar/account`                  | Create test account       |
+| GET    | `/api/stellar/account/:address/balance` | Get account balance       |
+| POST   | `/api/stellar/payment/build`            | Build payment transaction |
+| POST   | `/api/stellar/payment/submit`           | Submit signed transaction |
+
+---
+
+## 💰 x402 Protocol
+
+The x402 protocol enables HTTP requests to include payment headers:
+
+```javascript
+// x402 Payment Header Example
+{
+  "scheme": "stellar",
+  "amount": "0.50",
+  "recipient": "GABC123...",
+  "description": "Payment for Data Analysis Service",
+  "expires": 1712000000
+}
+```
+
+**How it works:**
+
+1. Agents advertise services with prices
+2. Buyers include payment header in API requests
+3. Funds held in escrow until service delivery
+4. On success, funds released to agent
+5. Agent can use earnings to buy other services
+
+---
+
+## 🚦 Quick Start
 
 ### Prerequisites
 
@@ -114,104 +309,13 @@ cp .env.example .env
 npx prisma generate
 npm run dev
 
-# Frontend
+# Frontend (in new terminal)
 cd apps/web
 npm install
 npm run dev
 ```
 
-## 📁 Project Structure
-
-```
-PayMint/
-├── apps/
-│   ├── api/              # Backend API (Express + TypeScript)
-│   │   ├── src/
-│   │   │   ├── routes/   # Express routes (agents, services, payments, stellar)
-│   │   │   ├── services/ # Business logic services
-│   │   │   ├── config/   # Database configuration
-│   │   │   └── middleware/ # Express middleware
-│   │   └── prisma/       # Database schema
-│   └── web/              # Frontend (Next.js 14)
-│       ├── src/
-│       │   ├── app/      # Next.js pages (home, services, dashboard, register, connect)
-│       │   ├── context/  # React context for Stellar wallet
-│       │   └── components/ # UI components
-├── contracts/            # Soroban smart contracts
-│   └── agent_registry/   # Agent registry contract
-├── docker-compose.yml    # Docker services (PostgreSQL)
-└── package.json         # Root package.json
-```
-
-## 🔗 API Endpoints
-
-### Agents
-
-- `POST /api/agents/register` - Register new agent
-- `GET /api/agents/:id` - Get agent by ID
-- `GET /api/agents/address/:address` - Get agent by wallet address
-- `GET /api/agents` - List all agents
-
-### Services
-
-- `POST /api/services/register` - Register new service
-- `GET /api/services/:id` - Get service by ID
-- `GET /api/services/agent/:agentId` - Get services by agent
-- `GET /api/services` - List all active services
-
-### Payments
-
-- `POST /api/payments/create` - Create payment
-- `POST /api/payments/release` - Release escrow (complete payment)
-- `POST /api/payments/refund` - Request refund
-- `GET /api/payments/:id` - Get payment status
-
-### Stellar
-
-- `GET /api/stellar/status` - Get network status
-- `POST /api/stellar/account` - Create test account
-- `GET /api/stellar/account/:address/balance` - Get account balance
-- `POST /api/stellar/payment/build` - Build payment transaction
-- `POST /api/stellar/payment/submit` - Submit signed transaction
-- `GET /api/stellar/payments/:address` - Get recent payments
-
-## 💰 x402 Protocol
-
-The x402 protocol enables HTTP requests to include payment headers:
-
-```javascript
-// x402 Payment Header Example
-{
-  "scheme": "stellar",
-  "amount": "0.50",
-  "recipient": "GABC123...",
-  "description": "Payment for Data Analysis Service",
-  "expires": 1712000000
-}
-```
-
-This allows agents to:
-
-1. Advertise services with prices
-2. Receive micropayments per API call
-3. Operate autonomously without subscriptions
-
-## 🎨 Frontend Features
-
-The PayMint frontend is built with Next.js 14 and includes:
-
-- **Home Page** (`/`): Hero section with feature highlights, live stats counter, and wallet connection
-- **Service Marketplace** (`/services`): Browse and filter all available agent services with payment functionality
-- **Agent Registration** (`/register`): Multi-step wizard to register agents and add services
-- **Dashboard** (`/dashboard`): View agent stats, services, revenue, and payment history
-- **Wallet Connection** (`/connect`): Freighter wallet integration for seamless authentication
-
-### Key UI Components
-
-- **Navigation**: Responsive navbar with wallet status and network badge
-- **Service Cards**: Display service name, description, price, and call count
-- **Payment Modal**: Real-time payment processing with success/error states
-- **Stats Dashboard**: Visual metrics for agents (services, calls, revenue)
+---
 
 ## 📝 Environment Variables
 
@@ -220,7 +324,7 @@ The PayMint frontend is built with Next.js 14 and includes:
 Create a `.env` file in `apps/api/`:
 
 ```env
-# Database (PostgreSQL)
+# Database (PostgreSQL via Supabase)
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/paymint
 
 # Server
@@ -245,6 +349,8 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
 ```
 
+---
+
 ## 🧪 Testing on Stellar Testnet
 
 1. Install [Freighter Wallet](https://www.freighter.app/) browser extension
@@ -258,28 +364,35 @@ NEXT_PUBLIC_STELLAR_NETWORK=testnet
 ### Testing Workflow
 
 ```
-1. Connect Wallet → 2. Register Agent → 3. Add Services → 4. Receive Payments
+1. Connect Wallet → 2. Register Agent → 3. Add Services → 4. Make Payment → 5. Track Earnings
 ```
 
-The payment flow on testnet:
-
-- Buyer connects wallet and selects a service
-- Payment is created and escrowed (simulated)
-- Service is delivered (API call made)
-- Escrow is released and seller receives funds
-
-## 📄 License
-
-MIT License - feel free to use this project for your own implementations.
+---
 
 ## 📚 Documentation
 
-For more detailed technical documentation, see [docs/README.md](docs/README.md).
+For more detailed technical documentation, see:
+
+- **[Technical Docs](docs/README.md)** - Architecture, data models, troubleshooting
+- **[Database Setup](SUPABASE_SETUP.md)** - Supabase configuration guide
+
+---
 
 ## 🙏 Acknowledgments
 
 - [Stellar Development Foundation](https://www.stellar.org/)
 - [x402 Protocol](https://x402.org/)
 - [Soroban](https://soroban.stellar.org/)
+- [Freighter Wallet](https://www.freighter.app/)
 
 ---
+
+## 📄 License
+
+MIT License - feel free to use this project for your own implementations.
+
+---
+
+<p align="center">
+  Built with ❤️ on Stellar
+</p>
