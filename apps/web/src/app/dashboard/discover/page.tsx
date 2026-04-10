@@ -27,6 +27,12 @@ export default function DiscoverPage() {
   const [filterType, setFilterType] = useState('all');
   const [priceRange, setPriceRange] = useState('all');
   
+  // Reviews state
+  const [selectedAgentForReviews, setSelectedAgentForReviews] = useState<any>(null);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [agentReviews, setAgentReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  
   // Get unique service types from actual services
   const serviceTypes = useMemo(() => {
     const types = new Set(services.map(s => s.serviceType).filter(Boolean));
@@ -122,6 +128,45 @@ export default function DiscoverPage() {
     }
 
     try {
+      // First, get the service details to find the seller's address
+      const serviceRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/services/${service.id}`
+      );
+      
+      if (!serviceRes.ok) {
+        throw new Error('Failed to fetch service details');
+      }
+      
+      const serviceData = await serviceRes.json();
+      const agentId = serviceData.agentId;
+      
+      // Get the agent's owner address (seller)
+      const agentRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agentId}`
+      );
+      
+      if (!agentRes.ok) {
+        throw new Error('Failed to fetch agent details');
+      }
+      
+      const agentData = await agentRes.json();
+      const sellerAddress = agentData.ownerAddress;
+      
+      if (!sellerAddress) {
+        throw new Error('Seller address not found');
+      }
+
+      // Show confirmation
+      const confirmed = confirm(
+        `Create escrow for ${service.pricePerCall} XLM?\n\n` +
+        `Service: ${service.name}\n` +
+        `Seller: ${sellerAddress.slice(0, 6)}...${sellerAddress.slice(-4)}\n\n` +
+        `Funds will be held in escrow until you release them after service is delivered.`
+      );
+      
+      if (!confirmed) return;
+
+      // Create escrow payment record (no XLM transferred yet)
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,20 +174,29 @@ export default function DiscoverPage() {
           serviceId: service.id,
           buyerAddress: address,
           amount: service.pricePerCall,
-          currency: service.currency || 'USDC',
+          currency: 'XLM',
         }),
       });
 
+
       if (res.ok) {
         const payment = await res.json();
-        alert(`Payment created! Escrow ID: ${payment.id}\nStatus: ${payment.status}\n\nGo to Escrow tab to release funds when service is delivered.`);
+        alert(
+          `Escrow created successfully!\n\n` +
+          `Escrow ID: ${payment.id}\n` +
+          `Amount: ${service.pricePerCall} XLM\n\n` +
+          `Go to Escrow tab to release funds once the service is delivered.`
+        );
+        
+        // Refresh the page to show new payment
+        router.refresh();
       } else {
         const data = await res.json();
-        alert(`Failed to create payment: ${data.error}`);
+        alert(`Failed to create escrow: ${data.error}`);
       }
-    } catch (err) {
-      console.error('Failed to create payment:', err);
-      alert('Failed to create payment');
+    } catch (err: any) {
+      console.error('Failed to create escrow:', err);
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -150,6 +204,30 @@ export default function DiscoverPage() {
     setSearchQuery('');
     setFilterType('all');
     setPriceRange('all');
+  };
+  
+  // Fetch reviews for an agent
+  const fetchAgentReviews = async (agentId: string) => {
+    setLoadingReviews(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agentId}/reviews`);
+      if (res.ok) {
+        const reviews = await res.json();
+        setAgentReviews(reviews || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch reviews:', err);
+      setAgentReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+  
+  // Open reviews modal
+  const openReviewsModal = async (agent: any) => {
+    setSelectedAgentForReviews(agent);
+    await fetchAgentReviews(agent.id);
+    setShowReviewsModal(true);
   };
 
   const hasActiveFilters = searchQuery || filterType !== 'all' || priceRange !== 'all';
@@ -828,6 +906,26 @@ export default function DiscoverPage() {
                         <span style={{ fontWeight: 600, color: '#fbbf24' }}>{agent.rating || '0.0'}</span>
                         <span> ({agent.ratingCount || 0})</span>
                       </span>
+                      {(agent.ratingCount || 0) > 0 && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openReviewsModal(agent);
+                          }}
+                          style={{
+                            marginLeft: '8px',
+                            padding: '4px 8px',
+                            background: 'rgba(0,210,255,0.1)',
+                            border: '1px solid rgba(0,210,255,0.3)',
+                            borderRadius: '4px',
+                            color: '#00d2ff',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Reviews
+                        </button>
+                      )}
                     </div>
                     
                     {/* Price Section */}
@@ -942,6 +1040,111 @@ export default function DiscoverPage() {
           </div>
         )}
       </div>
+      
+      {/* Reviews Modal */}
+      {showReviewsModal && selectedAgentForReviews && (
+        <div className="modal-overlay" onClick={() => setShowReviewsModal(false)} style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{
+            background: 'linear-gradient(180deg, rgba(13,20,32,0.98) 0%, rgba(8,12,20,1) 100%)',
+            border: '1px solid rgba(0,210,255,0.3)',
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px', color: '#e8f4ff' }}>Reviews for {selectedAgentForReviews.name}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star 
+                      key={star} 
+                      size={18} 
+                      color={star <= Math.round(selectedAgentForReviews.rating || 0) ? '#fbbf24' : 'rgba(255,255,255,0.2)'}
+                      fill={star <= Math.round(selectedAgentForReviews.rating || 0) ? '#fbbf24' : 'none'}
+                    />
+                  ))}
+                </div>
+                <span style={{ fontSize: '14px', color: 'rgba(232,244,255,0.5)' }}>
+                  <span style={{ fontWeight: 600, color: '#fbbf24' }}>{selectedAgentForReviews.rating || '0.0'}</span>
+                  <span> ({selectedAgentForReviews.ratingCount || 0} reviews)</span>
+                </span>
+              </div>
+            </div>
+            
+            {loadingReviews ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(232,244,255,0.5)' }}>Loading reviews...</div>
+            ) : agentReviews.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(232,244,255,0.5)' }}>
+                No ratings yet. Be the first to review this agent!
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {agentReviews.map((review: any, index: number) => (
+                  <div key={review.id || index} style={{
+                    padding: '16px',
+                    background: 'rgba(0,210,255,0.05)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(0,210,255,0.15)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star 
+                            key={star} 
+                            size={14} 
+                            color={star <= review.rating ? '#fbbf24' : 'rgba(255,255,255,0.2)'}
+                            fill={star <= review.rating ? '#fbbf24' : 'none'}
+                          />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: '12px', color: 'rgba(232,244,255,0.5)' }}>
+                        {review.buyerAddress?.slice(0, 6)}...{review.buyerAddress?.slice(-4)}
+                      </span>
+                    </div>
+                    {review.comment && (
+                      <p style={{ fontSize: '14px', color: '#e8f4ff', margin: 0 }}>
+                        {review.comment}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button 
+                onClick={() => setShowReviewsModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(0,210,255,0.3)',
+                  borderRadius: '8px',
+                  color: '#e8f4ff',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
