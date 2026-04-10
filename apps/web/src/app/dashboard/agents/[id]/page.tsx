@@ -836,7 +836,7 @@ export default function AgentDetailsPage() {
             <Power size={16} />
             {agent.status === 'ACTIVE' ? 'Disable' : 'Enable'}
           </button>
-          <button className="btn btn-secondary" onClick={() => setShowEditModal(true)}>
+          <button className="btn btn-secondary" onClick={() => router.push(`/dashboard/agents/${agentId}/edit`)}>
             <Edit size={16} />
             Edit / Configure Agent
           </button>
@@ -1052,7 +1052,7 @@ export default function AgentDetailsPage() {
           )}
           
           {/* Add Service Card */}
-          <div className="add-service-card" onClick={() => setShowServiceModal(true)}>
+          <div className="add-service-card" onClick={() => router.push(`/dashboard/services/new?agentId=${agentId}`)}>
             <div className="add-service-icon">
               <Plus size={24} />
             </div>
