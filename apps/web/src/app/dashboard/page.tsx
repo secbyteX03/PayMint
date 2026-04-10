@@ -872,11 +872,42 @@ export default function DashboardPage() {
     activeEscrows: 0,
     avgLatency: 0
   });
+  const [chartData, setChartData] = useState<{revenue: number[]; expenses: number[]; labels: string[]}>({
+    revenue: [],
+    expenses: [],
+    labels: []
+  });
   const [agents, setAgents] = useState<Agent[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [myAgent, setMyAgent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+
+  // Display agents from API data with real stats
+  const displayAgents = agents.length > 0 
+    ? agents.map((a: any) => {
+        // Calculate real revenue from completed payments where seller is this agent's owner
+        const agentPayments = payments.filter((p: any) => 
+          p.sellerAddress?.toLowerCase() === a.ownerAddress?.toLowerCase() && 
+          p.status === 'COMPLETED'
+        );
+        const revenue = agentPayments.reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0);
+        
+        // Get services for this agent
+        const agentServices = services.filter((s: any) => s.agentId === a.id);
+        const calls = agentServices.reduce((sum: number, s: any) => sum + (s.totalCalls || 0), 0);
+        
+        return {
+          id: a.id,
+          name: a.name,
+          type: a.pricingModel || 'PER_CALL',
+          status: a.status?.toLowerCase() || 'active',
+          revenue: revenue,
+          calls: calls
+        };
+      })
+    : [];
 
   // Generate random latency value only once on mount
   const latencyDelta = mounted ? Math.floor(Math.random() * 20) + 5 : 15;
@@ -895,20 +926,120 @@ export default function DashboardPage() {
       try {
         const baseUrl = 'http://localhost:3001/api';
         
-        // Fetch stats from API
+        // Fetch stats from API - use user-specific stats if address is available
         try {
-          const statsRes = await fetch(`${baseUrl}/stats`);
+          const statsUrl = address 
+            ? `${baseUrl}/stats/user/${address}` 
+            : `${baseUrl}/stats`;
+          const statsRes = await fetch(statsUrl);
           if (statsRes.ok) {
             const statsData = await statsRes.json();
+            // Calculate market rank based on revenue vs other agents
+            const allAgentsRes = await fetch(`${baseUrl}/agents`);
+            let marketRank = '-';
+            if (allAgentsRes.ok) {
+              const allAgents = await allAgentsRes.json();
+              const revenue = parseFloat(statsData.totalRevenue || '0');
+              const sortedByRevenue = [...allAgents].sort((a: any, b: any) => {
+                // Would need payments to calculate, using rating as proxy
+                return (b.rating || 0) - (a.rating || 0);
+              });
+              const rank = sortedByRevenue.findIndex((a: any) => 
+                a.ownerAddress?.toLowerCase() === address?.toLowerCase()) + 1;
+              marketRank = rank > 0 ? `#${rank}` : '-';
+            }
             setStats({
-              totalRevenue: parseFloat(statsData.totalVolume || '0'),
-              apiCalls: statsData.totalPayments || 0,
-              activeEscrows: statsData.totalServices || 0,
-              avgLatency: 0 // Not available from API, default to 0
+              totalRevenue: parseFloat(statsData.totalRevenue || statsData.totalVolume || '0'),
+              apiCalls: statsData.apiCalls || statsData.totalPayments || 0,
+              activeEscrows: statsData.activeEscrows || statsData.totalServices || 0,
+              avgLatency: marketRank
             });
           }
         } catch (e) {
           console.log('Using default stats');
+        }
+
+        // Fetch chart data
+        try {
+          const paymentsRes = await fetch(`${baseUrl}/payments`);
+          if (paymentsRes.ok) {
+            const allPayments = await paymentsRes.json();
+            setPayments(allPayments);
+            
+            // Get user's payments based on their address
+            const userPayments = address 
+              ? allPayments.filter((p: any) => 
+                p.sellerAddress?.toLowerCase() === address?.toLowerCase() || 
+                p.buyerAddress?.toLowerCase() === address?.toLowerCase()
+              )
+              : allPayments;
+            
+            // Generate last 30 days of data
+            const now = new Date();
+            const revenueByDay: Record<string, number> = {};
+            const expensesByDay: Record<string, number> = {};
+            const labels: string[] = [];
+            
+            // Initialize last 30 days
+            for (let i = 29; i >= 0; i--) {
+              const date = new Date(now);
+              date.setDate(date.getDate() - i);
+              const dateStr = date.toISOString().split('T')[0];
+              const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              labels.push(label);
+              revenueByDay[dateStr] = 0;
+              expensesByDay[dateStr] = 0;
+            }
+            
+            // Aggregate payments by day
+            userPayments.forEach((p: any) => {
+              if (p.status === 'COMPLETED') {
+                const paymentDate = new Date(p.createdAt).toISOString().split('T')[0];
+                const amount = parseFloat(p.amount) || 0;
+                
+                if (p.sellerAddress?.toLowerCase() === address?.toLowerCase()) {
+                  // As seller - this is revenue
+                  if (revenueByDay[paymentDate] !== undefined) {
+                    revenueByDay[paymentDate] += amount;
+                  }
+                }
+                if (p.buyerAddress?.toLowerCase() === address?.toLowerCase()) {
+                  // As buyer - this is expense
+                  if (expensesByDay[paymentDate] !== undefined) {
+                    expensesByDay[paymentDate] += amount;
+                  }
+                }
+              }
+            });
+            
+            const revenue = labels.map(label => {
+              const date = new Date(now);
+              const [month, day] = label.split(' ');
+              date.setMonth(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(month));
+              date.setDate(parseInt(day));
+              if (date > now) {
+                date.setFullYear(date.getFullYear() - 1);
+              }
+              const dateStr = date.toISOString().split('T')[0];
+              return revenueByDay[dateStr] || 0;
+            });
+            
+            const expenses = labels.map(label => {
+              const date = new Date(now);
+              const [month, day] = label.split(' ');
+              date.setMonth(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(month));
+              date.setDate(parseInt(day));
+              if (date > now) {
+                date.setFullYear(date.getFullYear() - 1);
+              }
+              const dateStr = date.toISOString().split('T')[0];
+              return expensesByDay[dateStr] || 0;
+            });
+            
+            setChartData({ revenue, expenses, labels });
+          }
+        } catch (e) {
+          console.log('Using default chart data');
         }
         
         try {
@@ -1090,14 +1221,17 @@ export default function DashboardPage() {
     setServiceData({ name: '', description: '', serviceType: 'CUSTOM', pricePerCall: '', currency: 'USDC', endpoint: '', method: 'POST', rateLimit: '', timeout: '', retryPolicy: '', responseFormat: 'JSON', schema: '', usageExamples: '' });
   };
 
-  // Use empty array - data fetched from API
-  const displayAgents = agents;
+  // Filter services to show only user's own services
+  const myServices = services.filter((s: any) => {
+    if (!myAgent) return false;
+    return s.agentId === myAgent.id;
+  });
 
   // Static ID for SSR hydration stability
   const stableId = 47000000;
 
-  const displayServices = services.length > 0 
-    ? services.map((s, i) => ({
+  const displayServices = myServices.length > 0 
+    ? myServices.map((s, i) => ({
         id: s.id,
         name: s.name,
         price: Number(s.pricePerCall) || 0,
@@ -1107,9 +1241,37 @@ export default function DashboardPage() {
       })) 
     : [];
 
-  const displayPayments: { id: string; name: string; time: string; amount: number; type: string; hash: string }[] = [];
-  const displayEscrow: { name: string; pct: number; amount: number; color: string }[] = [];
-  const totalEscrow = 0;
+  // Map payments to display format with service names
+  const displayPayments: { id: string; name: string; time: string; amount: number; type: string; hash: string }[] = payments.length > 0 
+    ? payments.slice(0, 5).map((p: any) => {
+        // Find the service name from services array
+        const service = services.find((s: any) => s.id === p.serviceId);
+        const serviceName = service?.name || p.serviceId?.slice(0, 8) || 'Payment';
+        const isIncoming = p.sellerAddress?.toLowerCase() === address?.toLowerCase();
+        return {
+          id: p.id,
+          name: serviceName,
+          time: p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Recent',
+          amount: parseFloat(p.amount) || 0,
+          type: isIncoming ? 'in' : 'out',
+          hash: p.transactionHash?.slice(0, 8) || p.id?.slice(0, 8) || 'N/A'
+        };
+      })
+    : [];
+  
+  // Map escrow payments
+  const displayEscrow: { name: string; pct: number; amount: number; color: string }[] = payments.length > 0
+    ? payments.filter((p: any) => p.status === 'PENDING' || p.status === 'ESCROW_CREATED' || p.status === 'LOCKED').slice(0, 3).map((p: any, i: number) => {
+        const service = services.find((s: any) => s.id === p.serviceId);
+        return {
+          name: service?.name || `Payment ${i + 1}`,
+          pct: p.status === 'COMPLETED' ? 100 : p.status === 'ESCROW_CREATED' ? 75 : 50,
+          amount: parseFloat(p.amount) || 0,
+          color: ['#00d2ff', '#7b6fff', '#ffaa00'][i % 3]
+        };
+      })
+    : [];
+  const totalEscrow = displayEscrow.reduce((sum, e) => sum + e.amount, 0);
   const pendingEscrows = Math.max(0, stats.activeEscrows - Math.floor(stats.activeEscrows * 0.7));
 
   const formatCurrency = (amount: number) => {
@@ -1119,6 +1281,38 @@ export default function DashboardPage() {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+  };
+
+  // Render chart path from data points
+  const renderChartPath = (data: number[], isRevenue: boolean, baseY: number) => {
+    if (data.length === 0) return null;
+    
+    const maxVal = Math.max(...data, 1);
+    const height = 120;
+    const width = 520;
+    const stepX = width / (data.length - 1);
+    
+    // Calculate Y positions (inverted - higher value = lower Y)
+    const points = data.map((val, i) => {
+      const x = i * stepX;
+      const y = baseY - (val / maxVal) * (height * 0.8);
+      return { x, y: Math.max(y, 5) };
+    });
+    
+    // Create path string
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const fillPath = linePath + ` L${width} ${height} L0 ${height}Z`;
+    
+    const strokeColor = isRevenue ? '#00d2ff' : '#7b6fff';
+    const fillUrl = isRevenue ? 'url(#grad1)' : 'url(#grad2)';
+    const strokeWidth = isRevenue ? 2 : 1.5;
+    
+    return (
+      <>
+        <path d={fillPath} fill={fillUrl} />
+        <path d={linePath} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      </>
+    );
   };
 
   const [pageSub, setPageSub] = useState('// LAST SYNC: -- EPOCH #--');
@@ -1208,9 +1402,9 @@ export default function DashboardPage() {
           <div className="stat-delta">↑ +{pendingEscrows} pending release</div>
         </div>
         <div className="stat-card orange">
-          <div className="stat-label">AVG LATENCY</div>
-          <div className="stat-value">{stats.avgLatency}ms</div>
-          <div className="stat-delta neg">↓ −{latencyDelta}ms vs baseline</div>
+          <div className="stat-label">MARKET RANK</div>
+          <div className="stat-value">{stats.avgLatency}</div>
+          <div className="stat-delta neg">↑ among {agents.length} agents</div>
         </div>
       </div>
       </>
@@ -1223,31 +1417,59 @@ export default function DashboardPage() {
             <div className="panel-meta">USDC · 30D</div>
           </div>
           <div className="chart-area">
-            <svg viewBox="0 0 520 130" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="grad1" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#00d2ff" stopOpacity="0.25"/>
-                  <stop offset="100%" stopColor="#00d2ff" stopOpacity="0"/>
-                </linearGradient>
-                <linearGradient id="grad2" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#7b6fff" stopOpacity="0.2"/>
-                  <stop offset="100%" stopColor="#7b6fff" stopOpacity="0"/>
-                </linearGradient>
-              </defs>
-              <line x1="0" y1="32" x2="520" y2="32" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
-              <line x1="0" y1="65" x2="520" y2="65" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
-              <line x1="0" y1="98" x2="520" y2="98" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
-              <path d="M0 98 L26 90 L52 82 L78 75 L104 72 L130 68 L156 58 L182 52 L208 55 L234 45 L260 38 L286 35 L312 28 L338 32 L364 22 L390 18 L416 14 L442 10 L468 12 L494 8 L520 5 L520 130 L0 130Z" fill="url(#grad1)"/>
-              <path d="M0 110 L26 108 L52 105 L78 100 L104 98 L130 95 L156 90 L182 88 L208 92 L234 86 L260 82 L286 80 L312 75 L338 78 L364 70 L390 66 L416 62 L442 58 L468 60 L494 55 L520 50 L520 130 L0 130Z" fill="url(#grad2)"/>
-              <path d="M0 98 L26 90 L52 82 L78 75 L104 72 L130 68 L156 58 L182 52 L208 55 L234 45 L260 38 L286 35 L312 28 L338 32 L364 22 L390 18 L416 14 L442 10 L468 12 L494 8 L520 5" fill="none" stroke="#00d2ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M0 110 L26 108 L52 105 L78 100 L104 98 L130 95 L156 90 L182 88 L208 92 L234 86 L260 82 L286 80 L312 75 L338 78 L364 70 L390 66 L416 62 L442 58 L468 60 L494 55 L520 50" fill="none" stroke="#7b6fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <text x="4" y="29" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$3k</text>
-              <text x="4" y="62" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$2k</text>
-              <text x="4" y="95" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$1k</text>
-            </svg>
+            {chartData.revenue.length > 0 || chartData.expenses.length > 0 ? (
+              <svg viewBox="0 0 520 130" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="grad1" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#00d2ff" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="#00d2ff" stopOpacity="0"/>
+                  </linearGradient>
+                  <linearGradient id="grad2" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#7b6fff" stopOpacity="0.2"/>
+                    <stop offset="100%" stopColor="#7b6fff" stopOpacity="0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="32" x2="520" y2="32" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
+                <line x1="0" y1="65" x2="520" y2="65" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
+                <line x1="0" y1="98" x2="520" y2="98" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
+                {renderChartPath(chartData.revenue, true, 98)}
+                {renderChartPath(chartData.expenses, false, 110)}
+              </svg>
+            ) : (
+              <svg viewBox="0 0 520 130" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="grad1" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#00d2ff" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="#00d2ff" stopOpacity="0"/>
+                  </linearGradient>
+                  <linearGradient id="grad2" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#7b6fff" stopOpacity="0.2"/>
+                    <stop offset="100%" stopColor="#7b6fff" stopOpacity="0"/>
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="32" x2="520" y2="32" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
+                <line x1="0" y1="65" x2="520" y2="65" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
+                <line x1="0" y1="98" x2="520" y2="98" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
+                <path d="M0 98 L26 90 L52 82 L78 75 L104 72 L130 68 L156 58 L182 52 L208 55 L234 45 L260 38 L286 35 L312 28 L338 32 L364 22 L390 18 L416 14 L442 10 L468 12 L494 8 L520 5 L520 130 L0 130Z" fill="url(#grad1)"/>
+                <path d="M0 110 L26 108 L52 105 L78 100 L104 98 L130 95 L156 90 L182 88 L208 92 L234 86 L260 82 L286 80 L312 75 L338 78 L364 70 L390 66 L416 62 L442 58 L468 60 L494 55 L520 50 L520 130 L0 130Z" fill="url(#grad2)"/>
+                <path d="M0 98 L26 90 L52 82 L78 75 L104 72 L130 68 L156 58 L182 52 L208 55 L234 45 L260 38 L286 35 L312 28 L338 32 L364 22 L390 18 L416 14 L442 10 L468 12 L494 8 L520 5" fill="none" stroke="#00d2ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M0 110 L26 108 L52 105 L78 100 L104 98 L130 95 L156 90 L182 88 L208 92 L234 86 L260 82 L286 80 L312 75 L338 78 L364 70 L390 66 L416 62 L442 58 L468 60 L494 55 L520 50" fill="none" stroke="#7b6fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <text x="4" y="29" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$3k</text>
+                <text x="4" y="62" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$2k</text>
+                <text x="4" y="95" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$1k</text>
+              </svg>
+            )}
           </div>
           <div className="chart-labels">
-            <span>APR 7</span><span>APR 13</span><span>APR 19</span><span>APR 25</span><span>MAY 1</span><span>MAY 6</span>
+            {chartData.labels.length > 0 ? (
+              chartData.labels.filter((_, i) => i % 5 === 0).map((label, i) => (
+                <span key={i}>{label}</span>
+              ))
+            ) : (
+              <>
+                <span>APR 7</span><span>APR 13</span><span>APR 19</span><span>APR 25</span><span>MAY 1</span><span>MAY 6</span>
+              </>
+            )}
           </div>
           <div className="chart-legend">
             <div className="chart-legend-item">

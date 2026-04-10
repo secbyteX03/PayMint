@@ -30,11 +30,20 @@ export default function PaymentsPage() {
 
   const fetchData = async () => {
     try {
-      // Fetch all payments
-      const paymentsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments`);
-      if (paymentsRes.ok) {
-        const paymentsData = await paymentsRes.json();
-        setPayments(paymentsData);
+      // If connected, fetch payments for user's wallet address
+      if (isConnected && publicKey) {
+        const paymentsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/address/${publicKey}`);
+        if (paymentsRes.ok) {
+          const paymentsData = await paymentsRes.json();
+          setPayments(paymentsData);
+        }
+      } else {
+        // Fetch all payments if not connected
+        const paymentsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments`);
+        if (paymentsRes.ok) {
+          const paymentsData = await paymentsRes.json();
+          setPayments(paymentsData);
+        }
       }
 
       // Fetch services for display
@@ -43,13 +52,6 @@ export default function PaymentsPage() {
         const servicesData = await servicesRes.json();
         setServices(servicesData);
       }
-
-      // Fetch agents for display
-      const agentsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents`);
-      if (agentsRes.ok) {
-        const agentsData = await agentsRes.json();
-        setAgents(agentsData);
-      }
     } catch (err) {
       console.error('Failed to fetch data:', err);
     } finally {
@@ -57,26 +59,21 @@ export default function PaymentsPage() {
     }
   };
 
-  // Filter payments for user's agents (as seller)
-  const userPayments = isConnected && publicKey
-    ? payments.filter(p => {
-        const service = services.find(s => s.id === p.serviceId);
-        const agent = service ? agents.find(a => a.id === service.agentId) : null;
-        return agent?.ownerAddress?.toLowerCase() === publicKey?.toLowerCase();
-      })
-    : [];
+  // User payments are already filtered by wallet address from API
+  // Show all transactions where user is buyer OR seller
+  const userPayments = payments;
 
-  // Calculate stats
+  // Calculate stats - earnings from completed payments where user is seller
   const totalEarned = userPayments
-    .filter(p => p.status === 'COMPLETED')
+    .filter(p => p.status === 'COMPLETED' && p.sellerAddress?.toLowerCase() === publicKey?.toLowerCase())
     .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
   
   const totalPending = userPayments
-    .filter(p => p.status === 'PENDING' || p.status === 'ESCROW_CREATED')
+    .filter(p => (p.status === 'PENDING' || p.status === 'ESCROW_CREATED') && p.sellerAddress?.toLowerCase() === publicKey?.toLowerCase())
     .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
   const totalSpent = isConnected && publicKey
-    ? payments
+    ? userPayments
         .filter(p => p.buyerAddress?.toLowerCase() === publicKey?.toLowerCase() && p.status === 'COMPLETED')
         .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
     : 0;
@@ -186,16 +183,16 @@ export default function PaymentsPage() {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 16px;
-          padding: 24px;
+          padding: 16px;
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 12px;
         }
 
         .stat-icon {
-          width: 56px;
-          height: 56px;
-          border-radius: 14px;
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -229,8 +226,8 @@ export default function PaymentsPage() {
         }
 
         .stat-value {
-          font-size: 28px;
-          font-weight: 800;
+          font-size: 20px;
+          font-weight: 700;
         }
 
         .stat-value.positive {
@@ -278,6 +275,8 @@ export default function PaymentsPage() {
           border: 1px solid var(--border);
           border-radius: 16px;
           overflow: hidden;
+          max-height: 600px;
+          overflow-y: auto;
         }
 
         table {
@@ -420,7 +419,7 @@ export default function PaymentsPage() {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon earned">
-            <TrendingUp size={28} />
+            <TrendingUp size={20} />
           </div>
           <div className="stat-content">
             <div className="stat-label">TOTAL EARNED</div>
@@ -429,7 +428,7 @@ export default function PaymentsPage() {
         </div>
         <div className="stat-card">
           <div className="stat-icon pending">
-            <Clock size={28} />
+            <Clock size={20} />
           </div>
           <div className="stat-content">
             <div className="stat-label">PENDING</div>
@@ -438,7 +437,7 @@ export default function PaymentsPage() {
         </div>
         <div className="stat-card">
           <div className="stat-icon spent">
-            <TrendingDown size={28} />
+            <TrendingDown size={20} />
           </div>
           <div className="stat-content">
             <div className="stat-label">TOTAL SPENT</div>

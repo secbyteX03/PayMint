@@ -57,10 +57,13 @@ export default function DashboardLayout({ children }: LayoutProps) {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/address/${address}`);
       if (res.ok) {
-        const agent = await res.json();
-        if (agent) {
-          setAgents([agent]);
-          setCurrentAgent(agent);
+        const agentsData = await res.json();
+        // The API returns an array of agents
+        const agentsList = Array.isArray(agentsData) ? agentsData : [agentsData];
+        setAgents(agentsList);
+        // Set the first agent as current for sidebar display
+        if (agentsList.length > 0) {
+          setCurrentAgent(agentsList[0]);
         }
       }
     } catch (err) {
@@ -108,6 +111,9 @@ export default function DashboardLayout({ children }: LayoutProps) {
           --accent: #00d2ff;
           --accent2: #7b6fff;
           --accent3: #ffaa00;
+          --accent-purple: #a855f7;
+          --accent-purple-light: #c084fc;
+          --accent-purple-dark: #7c3aed;
           --warn: #ff6b35;
           --text: #e8f4ff;
           --muted: rgba(232,244,255,0.45);
@@ -129,7 +135,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
 
         .dashboard-layout {
           display: grid;
-          grid-template-columns: ${sidebarOpen ? '240px' : '64px'} 1fr;
+          grid-template-columns: ${sidebarOpen ? '220px' : '64px'} 1fr;
           grid-template-rows: 56px 1fr;
           min-height: 100vh;
           background: var(--bg);
@@ -150,8 +156,8 @@ export default function DashboardLayout({ children }: LayoutProps) {
           position: fixed;
           top: 0; left: 0; right: 0; bottom: 0;
           background-image:
-            linear-gradient(rgba(0,210,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,210,255,0.03) 1px, transparent 1px);
+            linear-gradient(rgba(0,210,255,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,210,255,0.04) 1px, transparent 1px);
           background-size: 48px 48px;
           pointer-events: none;
           z-index: -1;
@@ -205,11 +211,12 @@ export default function DashboardLayout({ children }: LayoutProps) {
         .logo-icon {
           width: 26px;
           height: 26px;
-          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          background: linear-gradient(135deg, var(--accent-purple), var(--accent));
           border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
+          box-shadow: 0 0 20px rgba(168,85,247,0.4);
         }
 
         .network-badge {
@@ -217,9 +224,9 @@ export default function DashboardLayout({ children }: LayoutProps) {
           font-size: 10px;
           padding: 3px 8px;
           border-radius: 3px;
-          background: rgba(0,210,255,0.1);
-          border: 1px solid var(--border2);
-          color: var(--accent);
+          background: rgba(168,85,247,0.15);
+          border: 1px solid rgba(168,85,247,0.3);
+          color: var(--accent-purple-light);
           letter-spacing: 0.5px;
         }
 
@@ -227,8 +234,9 @@ export default function DashboardLayout({ children }: LayoutProps) {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #00ff9d;
+          background: var(--accent3);
           animation: pulse 2s ease-in-out infinite;
+          flex-shrink: 0;
         }
 
         @keyframes pulse {
@@ -263,7 +271,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
           width: 30px;
           height: 30px;
           border-radius: 50%;
-          background: linear-gradient(135deg, var(--accent2), var(--accent));
+          background: linear-gradient(135deg, var(--accent-purple), var(--accent2));
           display: flex;
           align-items: center;
           justify-content: center;
@@ -271,56 +279,60 @@ export default function DashboardLayout({ children }: LayoutProps) {
           font-weight: 700;
           color: white;
           cursor: pointer;
+          box-shadow: 0 0 15px rgba(168,85,247,0.3);
         }
 
         .dashboard-sidebar {
           background: var(--surface);
           border-right: 1px solid var(--border);
-          padding: 16px 0;
+          padding: 20px 0;
           display: flex;
           flex-direction: column;
           gap: 4px;
           overflow-y: auto;
-          transition: width 0.3s ease;
         }
 
         .nav-item {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 10px 16px;
+          gap: 10px;
+          padding: 9px 20px;
           font-size: 13px;
           font-weight: 600;
           color: var(--muted);
           cursor: pointer;
           transition: all 0.15s;
           border-left: 2px solid transparent;
+          letter-spacing: 0.2px;
           text-decoration: none;
-          white-space: nowrap;
-          overflow: hidden;
         }
 
         .nav-item:hover {
-          color: var(--text);
-          background: rgba(0,210,255,0.04);
+          color: var(--accent-purple-light);
+          background: rgba(168,85,247,0.08);
         }
 
         .nav-item.active {
-          color: var(--accent);
-          border-left-color: var(--accent);
-          background: rgba(0,210,255,0.06);
+          color: var(--accent-purple-light);
+          border-left-color: var(--accent-purple);
+          background: rgba(168,85,247,0.1);
         }
 
         .nav-icon {
-          width: 18px;
-          height: 18px;
+          width: 16px;
+          height: 16px;
+          opacity: 0.6;
           flex-shrink: 0;
+        }
+
+        .nav-item.active .nav-icon {
+          opacity: 1;
         }
 
         .nav-section-label {
           font-family: var(--mono);
           font-size: 9px;
-          color: var(--muted);
+          color: var(--accent-purple-light);
           letter-spacing: 2px;
           padding: 12px 20px 6px;
         }
@@ -329,8 +341,8 @@ export default function DashboardLayout({ children }: LayoutProps) {
           margin-left: auto;
           font-family: var(--mono);
           font-size: 9px;
-          background: rgba(0,210,255,0.15);
-          color: var(--accent);
+          background: rgba(168,85,247,0.2);
+          color: var(--accent-purple-light);
           padding: 2px 6px;
           border-radius: 3px;
         }
@@ -347,17 +359,18 @@ export default function DashboardLayout({ children }: LayoutProps) {
         }
 
         .agent-avatar {
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
-          background: linear-gradient(135deg, var(--accent2), var(--accent));
+          background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-light));
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 700;
           color: white;
           flex-shrink: 0;
+          box-shadow: 0 0 15px rgba(168,85,247,0.3);
         }
 
         .agent-info {

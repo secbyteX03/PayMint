@@ -55,10 +55,10 @@ export default function ProfilePage() {
       // Fetch user's agents
       const agentRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/address/${address}`);
       if (agentRes.ok) {
-        const agent = await agentRes.json();
-        if (agent) {
-          setDisplayAgents([agent]);
-        }
+        const agentsData = await agentRes.json();
+        // API returns array of agents
+        const agentsList = Array.isArray(agentsData) ? agentsData : [agentsData];
+        setDisplayAgents(agentsList);
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
