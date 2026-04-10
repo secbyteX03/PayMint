@@ -153,4 +153,66 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Get purchases with full service and agent details (for buyer's purchases page)
+router.get('/buyer/:address', async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    if (!address) {
+      return res.status(400).json({ error: 'Wallet address is required' });
+    }
+    
+    // Get payments where user is the buyer
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('buyerAddress', address)
+      .order('createdAt', { ascending: false });
+    
+    if (paymentsError) throw paymentsError;
+    
+    if (!payments || payments.length === 0) {
+      return res.json([]);
+    }
+    
+    // Get service IDs from payments
+    const serviceIds = payments.map(p => p.serviceId);
+    
+    // Get services details
+    const { data: services, error: servicesError } = await supabase
+      .from('services')
+      .select('*')
+      .in('id', serviceIds);
+    
+    if (servicesError) throw servicesError;
+    
+    // Get agent IDs from services
+    const agentIds = services ? [...new Set(services.map(s => s.agentId))] : [];
+    
+    // Get agents details
+    const { data: agents, error: agentsError } = await supabase
+      .from('agents')
+      .select('*')
+      .in('id', agentIds);
+    
+    if (agentsError) throw agentsError;
+    
+    // Build the response with nested data
+    const purchases = payments.map(payment => {
+      const service = services?.find(s => s.id === payment.serviceId);
+      const agent = agents?.find(a => a && service && a.id === service.agentId);
+      
+      return {
+        ...payment,
+        service: service || null,
+        agent: agent || null
+      };
+    });
+    
+    res.json(purchases);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export { router as paymentRoutes };

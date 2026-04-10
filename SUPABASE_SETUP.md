@@ -28,6 +28,25 @@ After running, you should see success messages and you can verify by:
 
 ---
 
+## Adding Missing Service Columns
+
+If you need to add the missing columns for full service configuration (endpoint, rateLimit, timeout, etc.), run:
+
+`apps/api/prisma/add_service_columns.sql`
+
+This adds these columns to the services table:
+
+- endpoint
+- method
+- rateLimit
+- timeout
+- retryPolicy
+- responseFormat
+- schema
+- usageExamples
+
+---
+
 ## Alternative: Use Supabase CLI
 
 If you have the Supabase CLI installed, you can run:

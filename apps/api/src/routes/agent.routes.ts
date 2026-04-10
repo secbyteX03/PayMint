@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { agentService } from '../services/agent.service';
-import prisma from '../config/prisma';
+import { supabase } from '../config/prisma';
 
 const router = Router();
 
@@ -166,13 +166,111 @@ router.get('/owner/:address', async (req: Request, res: Response) => {
 // Reset/clear all agents (debug endpoint)
 router.delete('/reset', async (req: Request, res: Response) => {
   try {
-    // Delete all payments first (due to foreign key)
-    await prisma.payment.deleteMany({});
-    // Delete all services
-    await prisma.service.deleteMany({});
-    // Delete all agents
-    await prisma.agent.deleteMany({});
-    res.json({ message: 'All agents, services, and payments cleared' });
+    // Delete all records using raw queries via rpc or direct table access
+    await supabase.from('payments').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('services').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('reviews').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('agents').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    res.json({ message: 'All agents, services, payments, and reviews cleared' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Submit a review for an agent
+router.post('/:id/review', async (req: Request, res: Response) => {
+  try {
+    const { buyerAddress, rating, comment } = req.body;
+    
+    if (!buyerAddress || !rating) {
+      return res.status(400).json({ error: 'buyerAddress and rating are required' });
+    }
+    
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    const agentId = req.params.id;
+
+    // Check if review already exists
+    const { data: existingReview } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('agentId', agentId)
+      .eq('buyerAddress', buyerAddress)
+      .single();
+
+    let review;
+    if (existingReview) {
+      // Update existing review
+      const { data: updatedReview, error: updateError } = await supabase
+        .from('reviews')
+        .update({
+          rating,
+          comment: comment || null,
+        })
+        .eq('id', existingReview.id)
+        .select()
+        .single();
+      
+      if (updateError) throw new Error(updateError.message);
+      review = updatedReview;
+    } else {
+      // Insert new review
+      const { data: newReview, error: insertError } = await supabase
+        .from('reviews')
+        .insert({
+          agentId,
+          buyerAddress,
+          rating,
+          comment: comment || null,
+        })
+        .select()
+        .single();
+      
+      if (insertError) throw new Error(insertError.message);
+      review = newReview;
+    }
+
+    // Recalculate agent's average rating
+    const { data: reviews } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('agentId', agentId);
+
+    if (reviews && reviews.length > 0) {
+      const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+      const avgRating = totalRating / reviews.length;
+      
+      // Use lowercase column names for Supabase
+      await supabase
+        .from('agents')
+        .update({ 
+          rating: avgRating, 
+          ratingcount: reviews.length 
+        })
+        .eq('id', agentId);
+    }
+
+    res.status(201).json(review);
+  } catch (error: any) {
+    console.error('Review submission error:', error);
+    res.status(500).json({ error: error.message || 'Failed to submit review' });
+  }
+});
+
+// Get reviews for an agent
+router.get('/:id/reviews', async (req: Request, res: Response) => {
+  try {
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('agentId', req.params.id)
+      .order('createdAt', { ascending: false });
+
+    if (error) throw new Error(error.message);
+
+    res.json(reviews || []);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

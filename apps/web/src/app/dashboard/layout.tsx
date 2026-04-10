@@ -25,7 +25,8 @@ import {
   ArrowRight,
   CheckCircle,
   X,
-  Menu
+  Menu,
+  Package
 } from 'lucide-react';
 import { useStellar } from '@/context/StellarContext';
 
@@ -80,6 +81,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
     { icon: ShieldCheck, label: 'Escrow', href: '/dashboard/escrow' },
     { section: 'MARKETPLACE', icon: null, label: '', href: '' },
     { icon: ShoppingCart, label: 'Discover', href: '/dashboard/discover' },
+    { icon: Package, label: 'Purchases', href: '/dashboard/purchases' },
     { icon: Link, label: 'Integrations', href: '/dashboard/integrations' },
     { section: 'ACCOUNT', icon: null, label: '', href: '' },
     { icon: User, label: 'Profile', href: '/dashboard/profile' },

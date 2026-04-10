@@ -25,7 +25,7 @@ router.post('/register', async (req: Request, res: Response) => {
     } = req.body;
     
     if (!agentId || !name || !pricePerCall) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing required fields: agentId, name, and pricePerCall are required' });
     }
     
     const service = await serviceService.registerService(
@@ -46,7 +46,8 @@ router.post('/register', async (req: Request, res: Response) => {
     );
     res.status(201).json(service);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Service registration error:', error);
+    res.status(500).json({ error: error.message || 'Failed to register service' });
   }
 });
 

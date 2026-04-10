@@ -42,34 +42,79 @@ export class AgentService {
       name,
     };
     
-    // Only add description (this field is definitely in the schema)
+    // Add all provided fields
     if (description) insertData.description = description;
+    if (apiEndpoint) insertData.apiEndpoint = apiEndpoint;
+    if (webhookUrl) insertData.webhookUrl = webhookUrl;
+    if (documentationUrl) insertData.documentationUrl = documentationUrl;
+    if (supportEmail) insertData.supportEmail = supportEmail;
+    if (logoUrl) insertData.logoUrl = logoUrl;
+    if (websiteUrl) insertData.websiteUrl = websiteUrl;
+    if (termsOfServiceUrl) insertData.termsOfServiceUrl = termsOfServiceUrl;
+    if (pricingModel) insertData.pricingModel = pricingModel;
+    if (pricePerCall) insertData.pricePerCall = pricePerCall;
+    if (capabilities && capabilities.length > 0) insertData.capabilities = capabilities;
+    if (apiKey) insertData.apiKey = apiKey;
     
     const { error } = await supabase
       .from('agents')
       .insert(insertData);
 
     if (error) {
-      // If it's a schema cache error, try inserting with just required fields
-      if (error.message.includes('schema cache')) {
-        const minimalData = { ownerAddress, name };
-        const { error: retryError } = await supabase
-          .from('agents')
-          .insert(minimalData);
+      console.error('Agent insert error:', error);
+      // Try with minimal data and then update
+      const minimalData = { ownerAddress, name };
+      const { error: retryError } = await supabase
+        .from('agents')
+        .insert(minimalData);
+      
+      if (retryError) {
+        console.error('Minimal insert error:', retryError);
+        throw new Error(retryError.message);
+      }
+      
+      // Fetch the newly created agent
+      const { data: newAgent } = await supabase
+        .from('agents')
+        .select()
+        .eq('ownerAddress', ownerAddress)
+        .eq('name', name)
+        .single();
+      
+      // Update with remaining fields
+      if (newAgent) {
+        const updateData: any = {};
+        if (description) updateData.description = description;
+        if (apiEndpoint) updateData.apiEndpoint = apiEndpoint;
+        if (webhookUrl) updateData.webhookUrl = webhookUrl;
+        if (documentationUrl) updateData.documentationUrl = documentationUrl;
+        if (supportEmail) updateData.supportEmail = supportEmail;
+        if (logoUrl) updateData.logoUrl = logoUrl;
+        if (websiteUrl) updateData.websiteUrl = websiteUrl;
+        if (termsOfServiceUrl) updateData.termsOfServiceUrl = termsOfServiceUrl;
+        if (pricingModel) updateData.pricingModel = pricingModel;
+        if (pricePerCall) updateData.pricePerCall = pricePerCall;
+        if (capabilities && capabilities.length > 0) updateData.capabilities = capabilities;
+        if (apiKey) updateData.apiKey = apiKey;
         
-        if (retryError) throw new Error(retryError.message);
+        if (Object.keys(updateData).length > 0) {
+          await supabase
+            .from('agents')
+            .update(updateData)
+            .eq('id', newAgent.id);
+        }
         
-        // Fetch the newly created agent
-        const { data: newAgent } = await supabase
+        // Fetch updated agent
+        const { data: updatedAgent } = await supabase
           .from('agents')
           .select()
-          .eq('ownerAddress', ownerAddress)
-          .eq('name', name)
+          .eq('id', newAgent.id)
           .single();
         
-        return newAgent;
+        return updatedAgent;
       }
-      throw new Error(error.message);
+      
+      return newAgent;
     }
 
     // Fetch the newly created agent
@@ -145,22 +190,32 @@ export class AgentService {
       .eq('agentId', id);
 
     const totalServices = services?.length || 0;
-    const totalPayments = services?.reduce(
-      (sum: number, svc: any) => sum + (svc.totalCalls || 0),
-      0
-    ) || 0;
-
-    // Calculate total revenue from completed payments
-    const totalRevenue = services?.reduce((sum: number, svc: any) => {
-      const payments = svc.payments || [];
-      const completedPayments = payments.filter(
-        (p: any) => p.status === 'COMPLETED'
-      );
-      return (
-        sum +
-        completedPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
-      );
-    }, 0);
+    
+    // Get all service IDs
+    const serviceIds = services?.map(s => s.id) || [];
+    
+    // Fetch all payments for these services
+    let totalRevenue = 0;
+    let totalPayments = 0;
+    
+    if (serviceIds.length > 0) {
+      const { data: payments } = await supabase
+        .from('payments')
+        .select('*')
+        .in('serviceId', serviceIds)
+        .eq('status', 'COMPLETED');
+      
+      // Calculate total revenue from completed payments
+      totalRevenue = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      
+      // Get all payments (not just completed) for API call count
+      const { data: allPayments } = await supabase
+        .from('payments')
+        .select('id')
+        .in('serviceId', serviceIds);
+      
+      totalPayments = allPayments?.length || 0;
+    }
 
     return {
       totalServices,
@@ -185,9 +240,40 @@ export class AgentService {
     supportEmail?: string;
     termsOfServiceUrl?: string;
   }) {
+    // Try to update all fields
+    try {
+      const { data: agent, error } = await supabase
+        .from('agents')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!error) return agent;
+      
+      // If error, check if it's a schema cache issue
+      if (error.message.includes('schema cache')) {
+        console.log('Schema cache error, trying minimal update');
+      } else {
+        throw new Error(error.message);
+      }
+    } catch (err) {
+      console.log('Update error:', (err as Error).message);
+    }
+    
+    // Fallback: only update guaranteed columns
+    const safeFields = ['name', 'description'];
+    const updateData: any = {};
+    
+    for (const field of safeFields) {
+      if (data[field as keyof typeof data] !== undefined) {
+        updateData[field] = data[field as keyof typeof data];
+      }
+    }
+
     const { data: agent, error } = await supabase
       .from('agents')
-      .update(data)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

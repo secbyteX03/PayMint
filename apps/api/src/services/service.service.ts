@@ -25,7 +25,7 @@ export class ServiceService {
       .single();
 
     if (agentError || !agent) {
-      throw new Error('Agent not found');
+      throw new Error('Agent not found: ' + agentId);
     }
 
     const { data, error } = await supabase
@@ -39,7 +39,7 @@ export class ServiceService {
         currency: currency || 'USDC',
         isActive: true,
         endpoint,
-        method: method || 'POST',
+        method,
         rateLimit,
         timeout,
         retryPolicy,
@@ -157,12 +157,43 @@ export class ServiceService {
   }
 
   async listAllServicesWithAgent() {
-    const { data, error } = await supabase
+    // Get all services
+    const { data: services, error: servicesError } = await supabase
       .from('services')
       .select('*');
 
-    if (error) throw new Error(error.message);
-    return data || [];
+    if (servicesError) throw new Error(servicesError.message);
+    if (!services || services.length === 0) return [];
+
+    // Get unique agent IDs
+    const agentIds = [...new Set(services.map((s: any) => s.agentId))];
+    
+    if (agentIds.length === 0) return services;
+
+    // Fetch all agents (we need all fields for the agent info)
+    const { data: agents, error: agentsError } = await supabase
+      .from('agents')
+      .select('*');
+
+    if (agentsError) {
+      console.error('Error fetching agents:', agentsError);
+      // Return services without agent info if agents query fails
+      return services;
+    }
+
+    // Create a map of agent info by ID
+    const agentMap = new Map();
+    if (agents) {
+      agents.forEach((agent: any) => {
+        agentMap.set(agent.id, agent);
+      });
+    }
+
+    // Add agent info to each service
+    return services.map((service: any) => ({
+      ...service,
+      agent: agentMap.get(service.agentId) || null
+    }));
   }
 }
 

@@ -59,6 +59,7 @@ export default function AgentDetailsPage() {
   });
   const [savingService, setSavingService] = useState(false);
   const [serviceError, setServiceError] = useState('');
+  const [serviceSuccess, setServiceSuccess] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const agentId = params.id as string;
@@ -157,6 +158,7 @@ export default function AgentDetailsPage() {
 
     setSavingService(true);
     setServiceError('');
+    setServiceSuccess('');
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services/register`, {
@@ -177,8 +179,17 @@ export default function AgentDetailsPage() {
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        setShowServiceModal(false);
+        setServiceSuccess('Service created successfully!');
+        // Don't close modal immediately - show success message first
+        // Then refresh the services list and close after a short delay
+        fetchAgentData();
+        setTimeout(() => {
+          setShowServiceModal(false);
+          setServiceSuccess('');
+        }, 1500);
         setServiceData({
           name: '',
           description: '',
@@ -192,8 +203,9 @@ export default function AgentDetailsPage() {
           responseFormat: 'JSON',
         });
         fetchAgentData();
+        // Clear success message after 3 seconds
+        setTimeout(() => setServiceSuccess(''), 3000);
       } else {
-        const data = await res.json();
         setServiceError(data.error || 'Failed to create service');
       }
     } catch (err: any) {
@@ -816,6 +828,16 @@ export default function AgentDetailsPage() {
           margin-bottom: 16px;
         }
 
+        .success-message {
+          background: rgba(34, 197, 94, 0.1);
+          border: 1px solid #22c55e;
+          border-radius: 8px;
+          padding: 12px 16px;
+          color: #22c55e;
+          font-size: 13px;
+          margin-bottom: 16px;
+        }
+
         .empty-services {
           text-align: center;
           padding: 40px;
@@ -836,9 +858,9 @@ export default function AgentDetailsPage() {
             <Power size={16} />
             {agent.status === 'ACTIVE' ? 'Disable' : 'Enable'}
           </button>
-          <button className="btn btn-secondary" onClick={() => router.push(`/dashboard/agents/${agentId}/edit`)}>
+          <button className="btn btn-secondary" onClick={() => setShowEditModal(true)}>
             <Edit size={16} />
-            Edit / Configure Agent
+            Configure Agent
           </button>
         </div>
       </div>
@@ -977,12 +999,31 @@ export default function AgentDetailsPage() {
               )}
               {!agent.apiEndpoint && !agent.webhookUrl && !agent.documentationUrl && (
                 <div style={{ 
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px',
                   padding: '20px', 
                   textAlign: 'center', 
                   color: 'var(--muted)',
                   fontSize: '13px'
                 }}>
-                  No endpoints configured. Click "Configure" to add endpoints.
+                  <div>No endpoints configured.</div>
+                  <button 
+                    onClick={() => setShowEditModal(true)}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'var(--accent)',
+                      color: '#080c14',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Configure Now
+                  </button>
                 </div>
               )}
             </div>
@@ -1165,6 +1206,7 @@ export default function AgentDetailsPage() {
               <button className="modal-close" onClick={() => setShowServiceModal(false)}>×</button>
             </div>
             <div className="modal-body">
+              {serviceSuccess && <div className="success-message">{serviceSuccess}</div>}
               {serviceError && <div className="error-message">{serviceError}</div>}
               <div className="form-group">
                 <label className="form-label">SERVICE NAME *</label>

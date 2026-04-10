@@ -14,7 +14,8 @@ import {
   Image,
   Globe2,
   FileText,
-  Save
+  Save,
+  Key
 } from 'lucide-react';
 import { useStellar } from '@/context/StellarContext';
 
@@ -32,6 +33,7 @@ export default function EditAgentPage() {
     description: '',
     supportEmail: '',
     apiEndpoint: '',
+    apiKey: '',
     webhookUrl: '',
     documentationUrl: '',
     logoUrl: '',
@@ -61,6 +63,7 @@ export default function EditAgentPage() {
           description: data.description || '',
           supportEmail: data.supportEmail || '',
           apiEndpoint: data.apiEndpoint || '',
+          apiKey: data.apiKey || '',
           webhookUrl: data.webhookUrl || '',
           documentationUrl: data.documentationUrl || '',
           logoUrl: data.logoUrl || '',
@@ -97,6 +100,7 @@ export default function EditAgentPage() {
           description: agentData.description,
           supportEmail: agentData.supportEmail || undefined,
           apiEndpoint: agentData.apiEndpoint || undefined,
+          apiKey: agentData.apiKey || undefined,
           webhookUrl: agentData.webhookUrl || undefined,
           documentationUrl: agentData.documentationUrl || undefined,
           logoUrl: agentData.logoUrl || undefined,
@@ -446,6 +450,21 @@ export default function EditAgentPage() {
                 </div>
               </div>
               <div className="form-group">
+                <label className="form-label">API Key</label>
+                <div className="input-icon">
+                  <Key size={14} className="input-icon-left" />
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="sk_live_... (leave empty to keep current)"
+                    value={agentData.apiKey}
+                    onChange={(e) => setAgentData({ ...agentData, apiKey: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
                 <label className="form-label">Webhook URL</label>
                 <div className="input-icon">
                   <Link size={14} className="input-icon-left" />
@@ -458,8 +477,6 @@ export default function EditAgentPage() {
                   />
                 </div>
               </div>
-            </div>
-            <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Documentation URL</label>
                 <div className="input-icon">
@@ -473,6 +490,8 @@ export default function EditAgentPage() {
                   />
                 </div>
               </div>
+            </div>
+            <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Logo URL</label>
                 <div className="input-icon">

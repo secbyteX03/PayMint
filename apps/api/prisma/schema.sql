@@ -1,26 +1,26 @@
-// AgentPay Database Schema
+// AgentPay Database Schema - Consolidated
 // Supabase PostgreSQL
-// Updated: 2026-04-09
+// Updated: 2026-04-10
 
 // ============================================================================
 // AGENTS TABLE - Stores AI agent information
 // ============================================================================
 CREATE TABLE IF NOT EXISTS agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "ownerAddress" TEXT NOT NULL,  -- Wallet address of the owner (allows multiple agents per wallet)
+    "ownerAddress" TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    status TEXT DEFAULT 'ACTIVE',  -- ACTIVE, INACTIVE, SUSPENDED
+    status TEXT DEFAULT 'ACTIVE',
     
     -- Agent configuration for buyers
-    apiEndpoint TEXT,  -- The base URL where the agent's API is hosted
-    apiKey TEXT,  -- API key for authentication (encrypted)
-    webhookUrl TEXT,  -- Webhook URL for notifications
-    documentationUrl TEXT,  -- Link to documentation
+    apiEndpoint TEXT,
+    apiKey TEXT,
+    webhookUrl TEXT,
+    documentationUrl TEXT,
     
     -- Capabilities and pricing
-    capabilities TEXT[],  -- Array of capability tags e.g., ['text-generation', 'image-analysis']
-    pricingModel TEXT DEFAULT 'PER_CALL',  -- PER_CALL, SUBSCRIPTION, ENTERPRISE
+    capabilities TEXT[],
+    pricingModel TEXT DEFAULT 'PER_CALL',
     "pricePerCall" DECIMAL(15,7),
     "pricePerMonth" DECIMAL(15,7),
     
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS agents (
     supportEmail TEXT,
     termsOfServiceUrl TEXT,
     
-    -- Ratings
+    -- Ratings (computed from reviews)
     rating DECIMAL(3,2) DEFAULT 0,
     ratingCount INTEGER DEFAULT 0,
     
@@ -44,28 +44,28 @@ CREATE TABLE IF NOT EXISTS agents (
 // ============================================================================
 CREATE TABLE IF NOT EXISTS services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "agentId" UUID NOT NULL,  -- Reference to agent (no FK constraint to avoid join issues)
+    "agentId" UUID NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
-    "serviceType" TEXT DEFAULT 'CUSTOM',  -- CUSTOM, PREMIUM, ENTERPRISE
+    "serviceType" TEXT DEFAULT 'CUSTOM',
     "pricePerCall" DECIMAL(15,7) NOT NULL,
-    currency TEXT DEFAULT 'XLM',  -- XLM, USDC
+    currency TEXT DEFAULT 'XLM',
     "isActive" BOOLEAN DEFAULT true,
     "totalCalls" INTEGER DEFAULT 0,
     
     -- Service-specific configuration
-    endpoint TEXT,  -- Specific endpoint path for this service
-    method TEXT DEFAULT 'POST',  -- HTTP method (GET, POST, etc.)
-    rateLimit INTEGER,  -- Calls per minute limit
-    timeout INTEGER,  -- Request timeout in seconds
-    retryPolicy TEXT,  -- JSON string for retry configuration
+    endpoint TEXT,
+    method TEXT DEFAULT 'POST',
+    rateLimit INTEGER,
+    timeout INTEGER,
+    retryPolicy TEXT,
     
     -- Response info
-    responseFormat TEXT,  -- Expected response format (JSON, XML, etc.)
-    schema TEXT,  -- JSON schema for request/response
+    responseFormat TEXT,
+    schema TEXT,
     
     -- Usage documentation
-    usageExamples TEXT[],  -- Array of usage examples
+    usageExamples TEXT[],
     
     -- Timestamps
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -76,14 +76,14 @@ CREATE TABLE IF NOT EXISTS services (
 // ============================================================================
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "serviceId" UUID NOT NULL,  -- Reference to service (no FK constraint to avoid join issues)
-    "buyerAddress" TEXT NOT NULL,  -- Buyer wallet address
-    "sellerAddress" TEXT NOT NULL,  -- Seller wallet address
+    "serviceId" UUID NOT NULL,
+    "buyerAddress" TEXT NOT NULL,
+    "sellerAddress" TEXT NOT NULL,
     amount DECIMAL(15,7) NOT NULL,
     currency TEXT NOT NULL,
-    status TEXT DEFAULT 'PENDING',  -- PENDING, ESCROW_CREATED, COMPLETED, FAILED
-    "transactionHash" TEXT,  -- Stellar transaction hash
-    "escrowId" TEXT,  -- Escrow ID if using escrow
+    status TEXT DEFAULT 'PENDING',
+    "transactionHash" TEXT,
+    "escrowId" TEXT,
     
     -- Timestamps
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -95,14 +95,31 @@ CREATE TABLE IF NOT EXISTS payments (
 // ============================================================================
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    hash TEXT UNIQUE NOT NULL,  -- Transaction hash
-    type TEXT NOT NULL,  -- PAYMENT, ESCROW, RELEASE
+    hash TEXT UNIQUE NOT NULL,
+    type TEXT NOT NULL,
     "fromAddress" TEXT NOT NULL,
     "toAddress" TEXT NOT NULL,
     amount DECIMAL(15,7) NOT NULL,
     currency TEXT NOT NULL,
-    status TEXT DEFAULT 'PENDING',  -- PENDING, COMPLETED, FAILED
+    status TEXT DEFAULT 'PENDING',
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+// ============================================================================
+// REVIEWS TABLE - Stores agent ratings and reviews from buyers
+// ============================================================================
+CREATE TABLE IF NOT EXISTS reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "agentId" UUID NOT NULL,
+    "buyerAddress" TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    
+    -- Timestamps
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- One review per buyer per agent
+    UNIQUE("agentId", "buyerAddress")
 );
 
 // ============================================================================
@@ -112,12 +129,14 @@ ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
 // Public access policies (for API access)
 CREATE POLICY "Enable all access for agents" ON agents FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for services" ON services FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for payments" ON payments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for reviews" ON reviews FOR ALL USING (true) WITH CHECK (true);
 
 // ============================================================================
 // INDEXES - For better query performance
@@ -140,3 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_seller ON payments("sellerAddress");
 -- Transactions indexes
 CREATE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(hash);
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
+
+-- Reviews indexes
+CREATE INDEX IF NOT EXISTS idx_reviews_agent ON reviews("agentId");
+CREATE INDEX IF NOT EXISTS idx_reviews_buyer ON reviews("buyerAddress");

@@ -22,6 +22,7 @@ export default function MyAgentsPage() {
   const { address, isConnected } = useStellar();
   const [agents, setAgents] = useState<any[]>([]);
   const [servicesMap, setServicesMap] = useState<Record<string, any[]>>({});
+  const [statsMap, setStatsMap] = useState<Record<string, { totalCalls: number; totalRevenue: number }>>({});
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -68,6 +69,22 @@ export default function MyAgentsPage() {
           if (servicesRes.ok) {
             const services = await servicesRes.json();
             setServicesMap((prev: any) => ({ ...prev, [agent.id]: services }));
+          }
+          // Also fetch stats for revenue and API calls
+          try {
+            const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agent.id}/stats`);
+            if (statsRes.ok) {
+              const stats = await statsRes.json();
+              setStatsMap((prev: any) => ({
+                ...prev,
+                [agent.id]: {
+                  totalCalls: parseInt(stats.totalPayments) || 0,
+                  totalRevenue: parseFloat(stats.totalRevenue) || 0
+                }
+              }));
+            }
+          } catch (statsErr) {
+            console.error('Failed to fetch stats for agent:', agent.id, statsErr);
           }
         });
       }
@@ -181,6 +198,14 @@ export default function MyAgentsPage() {
 
   const getServiceCount = (agentId: string) => {
     return servicesMap[agentId]?.length || 0;
+  };
+
+  const getApiCalls = (agentId: string) => {
+    return statsMap[agentId]?.totalCalls || 0;
+  };
+
+  const getRevenue = (agentId: string) => {
+    return statsMap[agentId]?.totalRevenue || 0;
   };
 
   // Show loading state only after mount to prevent hydration mismatch
@@ -660,7 +685,7 @@ export default function MyAgentsPage() {
                           }}
                         >
                           <Settings size={14} />
-                          Manage
+                          Configure
                         </button>
                         <button 
                           className="menu-item"
@@ -697,11 +722,11 @@ export default function MyAgentsPage() {
                   <div className="agent-stat-label">SERVICES</div>
                 </div>
                 <div className="agent-stat">
-                  <div className="agent-stat-value">0</div>
+                  <div className="agent-stat-value">{getApiCalls(agent.id)}</div>
                   <div className="agent-stat-label">API CALLS</div>
                 </div>
                 <div className="agent-stat">
-                  <div className="agent-stat-value">$0</div>
+                  <div className="agent-stat-value" style={{ color: getRevenue(agent.id) > 0 ? '#fbbf24' : '#a855f7' }}>${getRevenue(agent.id).toFixed(2)}</div>
                   <div className="agent-stat-label">REVENUE</div>
                 </div>
               </div>

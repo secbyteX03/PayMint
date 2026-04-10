@@ -13,7 +13,8 @@ import {
   Mail,
   Image,
   Globe2,
-  FileText
+  FileText,
+  Key
 } from 'lucide-react';
 import { useStellar } from '@/context/StellarContext';
 
@@ -27,6 +28,7 @@ export default function NewAgentPage() {
     description: '',
     supportEmail: '',
     apiEndpoint: '',
+    apiKey: '',
     webhookUrl: '',
     documentationUrl: '',
     logoUrl: '',
@@ -66,6 +68,7 @@ export default function NewAgentPage() {
           description: agentData.description,
           supportEmail: agentData.supportEmail || undefined,
           apiEndpoint: agentData.apiEndpoint || undefined,
+          apiKey: agentData.apiKey || undefined,
           webhookUrl: agentData.webhookUrl || undefined,
           documentationUrl: agentData.documentationUrl || undefined,
           logoUrl: agentData.logoUrl || undefined,
@@ -415,6 +418,21 @@ export default function NewAgentPage() {
                 </div>
               </div>
               <div className="form-group">
+                <label className="form-label">API Key</label>
+                <div className="input-icon">
+                  <Key size={14} className="input-icon-left" />
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="sk_test_..."
+                    value={agentData.apiKey}
+                    onChange={(e) => setAgentData({ ...agentData, apiKey: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
                 <label className="form-label">Webhook URL</label>
                 <div className="input-icon">
                   <Link size={14} className="input-icon-left" />
@@ -427,8 +445,6 @@ export default function NewAgentPage() {
                   />
                 </div>
               </div>
-            </div>
-            <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Documentation URL</label>
                 <div className="input-icon">
@@ -439,19 +455,6 @@ export default function NewAgentPage() {
                     placeholder="https://docs.example.com"
                     value={agentData.documentationUrl}
                     onChange={(e) => setAgentData({ ...agentData, documentationUrl: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Logo URL</label>
-                <div className="input-icon">
-                  <Image size={14} className="input-icon-left" />
-                  <input
-                    type="url"
-                    className="form-input"
-                    placeholder="https://example.com/logo.png"
-                    value={agentData.logoUrl}
-                    onChange={(e) => setAgentData({ ...agentData, logoUrl: e.target.value })}
                   />
                 </div>
               </div>

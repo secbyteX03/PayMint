@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   ArrowLeft,
   Plus,
@@ -18,11 +18,11 @@ import { useStellar } from '@/context/StellarContext';
 
 export default function NewServicePage() {
   const router = useRouter();
-  const params = useParams();
+  const searchParams = useSearchParams();
   const { address, isConnected } = useStellar();
   const [mounted, setMounted] = useState(false);
   
-  const preSelectedAgentId = params.agentId as string || '';
+  const preSelectedAgentId = searchParams.get('agentId') || '';
   
   const [agents, setAgents] = useState<any[]>([]);
   const [loadingAgents, setLoadingAgents] = useState(true);
@@ -45,6 +45,7 @@ export default function NewServicePage() {
   });
   const [savingService, setSavingService] = useState(false);
   const [serviceError, setServiceError] = useState('');
+  const [serviceSuccess, setServiceSuccess] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -82,6 +83,7 @@ export default function NewServicePage() {
 
     setSavingService(true);
     setServiceError('');
+    setServiceSuccess('');
 
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services/register`, {
@@ -105,10 +107,15 @@ export default function NewServicePage() {
         }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        router.push('/dashboard/services');
+        setServiceSuccess('Service created successfully!');
+        // Wait a moment to show the success message before redirecting
+        setTimeout(() => {
+          router.push('/dashboard/services');
+        }, 1500);
       } else {
-        const data = await res.json();
         setServiceError(data.error || 'Failed to create service');
       }
     } catch (err: any) {
@@ -308,6 +315,16 @@ export default function NewServicePage() {
           margin-bottom: 16px;
         }
 
+        .success-message {
+          padding: 12px 16px;
+          background: rgba(34, 197, 94, 0.1);
+          border: 1px solid #22c55e;
+          border-radius: 10px;
+          color: #22c55e;
+          font-size: 13px;
+          margin-bottom: 16px;
+        }
+
         .form-actions {
           display: flex;
           justify-content: flex-end;
@@ -419,6 +436,12 @@ export default function NewServicePage() {
               {serviceError && (
                 <div className="error-message">
                   {serviceError}
+                </div>
+              )}
+
+              {serviceSuccess && (
+                <div className="success-message">
+                  {serviceSuccess}
                 </div>
               )}
 

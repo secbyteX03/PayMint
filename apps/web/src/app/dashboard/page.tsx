@@ -810,7 +810,7 @@ interface DashboardStats {
   totalRevenue: number;
   apiCalls: number;
   activeEscrows: number;
-  avgLatency: number;
+  avgLatency: string;
 }
 
 export default function DashboardPage() {
@@ -870,7 +870,7 @@ export default function DashboardPage() {
     totalRevenue: 0,
     apiCalls: 0,
     activeEscrows: 0,
-    avgLatency: 0
+    avgLatency: '-'
   });
   const [chartData, setChartData] = useState<{revenue: number[]; expenses: number[]; labels: string[]}>({
     revenue: [],
@@ -884,9 +884,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
-  // Display agents from API data with real stats
-  const displayAgents = agents.length > 0 
-    ? agents.map((a: any) => {
+  // Display agents from API data filtered by user's wallet address
+  const userAgents = address 
+    ? agents.filter((a: any) => a.ownerAddress?.toLowerCase() === address?.toLowerCase())
+    : [];
+  
+  const displayAgents = userAgents.length > 0 
+    ? userAgents.map((a: any) => {
         // Calculate real revenue from completed payments where seller is this agent's owner
         const agentPayments = payments.filter((p: any) => 
           p.sellerAddress?.toLowerCase() === a.ownerAddress?.toLowerCase() && 
@@ -1241,9 +1245,16 @@ export default function DashboardPage() {
       })) 
     : [];
 
-  // Map payments to display format with service names
-  const displayPayments: { id: string; name: string; time: string; amount: number; type: string; hash: string }[] = payments.length > 0 
-    ? payments.slice(0, 5).map((p: any) => {
+  // Map payments to display format with service names - filtered by user's wallet address
+  const userPayments = address
+    ? payments.filter((p: any) => 
+        p.buyerAddress?.toLowerCase() === address?.toLowerCase() ||
+        p.sellerAddress?.toLowerCase() === address?.toLowerCase()
+      )
+    : payments;
+  
+  const displayPayments: { id: string; name: string; time: string; amount: number; type: string; hash: string }[] = userPayments.length > 0 
+    ? userPayments.slice(0, 5).map((p: any) => {
         // Find the service name from services array
         const service = services.find((s: any) => s.id === p.serviceId);
         const serviceName = service?.name || p.serviceId?.slice(0, 8) || 'Payment';
@@ -1259,11 +1270,19 @@ export default function DashboardPage() {
       })
     : [];
   
-  // Map escrow payments
-  const displayEscrow: { name: string; pct: number; amount: number; color: string }[] = payments.length > 0
-    ? payments.filter((p: any) => p.status === 'PENDING' || p.status === 'ESCROW_CREATED' || p.status === 'LOCKED').slice(0, 3).map((p: any, i: number) => {
+  // Map escrow payments - filtered by user's wallet address as buyer (user needs to release these)
+  const userEscrows = address
+    ? payments.filter((p: any) => 
+        p.buyerAddress?.toLowerCase() === address?.toLowerCase() &&
+        (p.status === 'PENDING' || p.status === 'ESCROW_CREATED' || p.status === 'LOCKED')
+      )
+    : payments.filter((p: any) => p.status === 'PENDING' || p.status === 'ESCROW_CREATED' || p.status === 'LOCKED');
+  
+  const displayEscrow: { id: string; name: string; pct: number; amount: number; color: string }[] = userEscrows.length > 0
+    ? userEscrows.slice(0, 3).map((p: any, i: number) => {
         const service = services.find((s: any) => s.id === p.serviceId);
         return {
+          id: p.id,
           name: service?.name || `Payment ${i + 1}`,
           pct: p.status === 'COMPLETED' ? 100 : p.status === 'ESCROW_CREATED' ? 75 : 50,
           amount: parseFloat(p.amount) || 0,
@@ -1272,7 +1291,7 @@ export default function DashboardPage() {
       })
     : [];
   const totalEscrow = displayEscrow.reduce((sum, e) => sum + e.amount, 0);
-  const pendingEscrows = Math.max(0, stats.activeEscrows - Math.floor(stats.activeEscrows * 0.7));
+  const pendingEscrows = userEscrows.length;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -1538,10 +1557,12 @@ export default function DashboardPage() {
             <div className="panel-meta">USDC LOCKED</div>
           </div>
           {displayEscrow.length === 0 ? (
-            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)' }}>No escrow data available</div>
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)' }}>
+              {address ? 'No pending escrows to release for your wallet' : 'Connect wallet to view your escrows'}
+            </div>
           ) : (
             displayEscrow.map((escrow, i) => (
-              <div key={i} className="escrow-row">
+              <div key={escrow.id || i} className="escrow-row">
                 <div className="escrow-label">{escrow.name}</div>
                 <div className="escrow-bar-wrap">
                   <div className="escrow-bar-inner" style={{ width: `${escrow.pct}%`, background: escrow.color }}></div>
@@ -1556,7 +1577,16 @@ export default function DashboardPage() {
               <div className="escrow-total-label">TOTAL LOCKED</div>
               <div className="escrow-total-value">${totalEscrow.toFixed(2)}</div>
             </div>
-            <button className="btn btn-primary" style={{ fontSize: '11px', padding: '6px 14px' }} onClick={() => handleReleaseEscrow('All Escrows')}>
+            <button 
+              className="btn btn-primary" 
+              style={{ fontSize: '11px', padding: '6px 14px', opacity: displayEscrow.length === 0 ? 0.5 : 1, cursor: displayEscrow.length === 0 ? 'not-allowed' : 'pointer' }}
+              onClick={() => {
+                if (displayEscrow.length > 0) {
+                  handleReleaseEscrow('All Escrows');
+                }
+              }}
+              disabled={displayEscrow.length === 0}
+            >
               Release All
             </button>
           </div>
