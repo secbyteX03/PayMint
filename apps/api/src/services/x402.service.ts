@@ -30,7 +30,7 @@ export class X402PaymentService {
     // Get service details
     const { data: service, error } = await supabase
       .from('services')
-      .select('*, agents(*)')
+      .select('*')
       .eq('id', serviceId)
       .single();
 
@@ -38,7 +38,14 @@ export class X402PaymentService {
       throw new Error('Service not found or not active');
     }
 
-    if (!service.agents) {
+    // Get agent details separately
+    const { data: agent } = await supabase
+      .from('agents')
+      .select('ownerAddress')
+      .eq('id', service.agentId)
+      .single();
+
+    if (!agent) {
       throw new Error('Agent not found');
     }
 
@@ -46,7 +53,7 @@ export class X402PaymentService {
     const header: x402PaymentHeader = {
       scheme: 'stellar',
       amount: service.pricePerCall.toString(),
-      recipient: service.agents.ownerAddress,
+      recipient: agent.ownerAddress,
       description: `Payment for ${service.name}`,
       expires: Math.floor(Date.now() / 1000) + 3600, // 1 hour expiry
     };
@@ -63,16 +70,16 @@ export class X402PaymentService {
   ): Promise<boolean> {
     const { data: service, error } = await supabase
       .from('services')
-      .select('*, agents(*)')
+      .select('*, agent:agents(ownerAddress)')
       .eq('id', serviceId)
       .single();
 
-    if (error || !service || !service.agents) {
+    if (error || !service || !service.agent) {
       return false;
     }
 
     // Verify recipient matches
-    if (header.recipient !== service.agents.ownerAddress) {
+    if (header.recipient !== service.agent.ownerAddress) {
       return false;
     }
 

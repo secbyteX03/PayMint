@@ -10,7 +10,7 @@ export class PaymentService {
     // Verify service exists and is active
     const { data: service, error: serviceError } = await supabase
       .from('services')
-      .select('*, agents(*)')
+      .select('*')
       .eq('id', serviceId)
       .single();
 
@@ -37,9 +37,9 @@ export class PaymentService {
         sellerAddress: agent.ownerAddress,
         amount,
         currency,
-        status: 'PENDING',
+        status: 'ESCROW_CREATED', // Payment created and funds locked in escrow
       })
-      .select('*, services(*)')
+      .select()
       .single();
 
     if (error) throw new Error(error.message);
@@ -49,7 +49,7 @@ export class PaymentService {
   async getPayment(id: string) {
     const { data, error } = await supabase
       .from('payments')
-      .select('*, services(*)')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -60,7 +60,7 @@ export class PaymentService {
   async getPaymentsByService(serviceId: string) {
     const { data, error } = await supabase
       .from('payments')
-      .select('*, services(*)')
+      .select('*')
       .eq('serviceId', serviceId);
 
     if (error) throw new Error(error.message);
@@ -90,7 +90,7 @@ export class PaymentService {
         transactionHash,
       })
       .eq('id', paymentId)
-      .select('*, services(*)')
+      .select()
       .single();
 
     if (error) throw new Error(error.message);
@@ -134,6 +134,35 @@ export class PaymentService {
       })
       .eq('id', paymentId)
       .select('*, services(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated;
+  }
+
+  async cancelPayment(paymentId: string, reason?: string) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (fetchError || !payment) {
+      throw new Error('Payment not found');
+    }
+
+    // Cancel is only allowed for PENDING payments (before escrow is created)
+    if (payment.status !== 'PENDING') {
+      throw new Error('Only PENDING payments can be cancelled. For ESCROW_CREATED, please request a refund.');
+    }
+
+    const { data: updated, error } = await supabase
+      .from('payments')
+      .update({
+        status: 'CANCELLED',
+      })
+      .eq('id', paymentId)
+      .select()
       .single();
 
     if (error) throw new Error(error.message);

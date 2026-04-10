@@ -18,24 +18,6 @@ export class AgentService {
     supportEmail?: string,
     termsOfServiceUrl?: string
   ) {
-    // Check if an agent with this owner address already exists
-    try {
-      const existingByOwner = await supabase
-        .from('agents')
-        .select('id')
-        .eq('ownerAddress', ownerAddress)
-        .maybeSingle();
-
-      if (existingByOwner.data) {
-        throw new Error('An agent has already been registered with this wallet address');
-      }
-    } catch (checkError: any) {
-      if (checkError.message === 'An agent has already been registered with this wallet address') {
-        throw checkError;
-      }
-      // Ignore other errors (schema cache issues)
-    }
-
     // Check if agent name already exists (global uniqueness)
     try {
       const existingByName = await supabase
@@ -140,7 +122,7 @@ export class AgentService {
   async listAgents() {
     const { data, error } = await supabase
       .from('agents')
-      .select('*, services(*)');
+      .select('*');
 
     if (error) throw new Error(error.message);
     return data || [];
@@ -149,7 +131,7 @@ export class AgentService {
   async getAgentStats(id: string) {
     const { data: agent, error: agentError } = await supabase
       .from('agents')
-      .select('*, services(*, payments(*))')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -157,15 +139,19 @@ export class AgentService {
       throw new Error('Agent not found');
     }
 
-    const services = agent.services || [];
-    const totalServices = services.length;
-    const totalPayments = services.reduce(
+    const { data: services } = await supabase
+      .from('services')
+      .select('*')
+      .eq('agentId', id);
+
+    const totalServices = services?.length || 0;
+    const totalPayments = services?.reduce(
       (sum: number, svc: any) => sum + (svc.totalCalls || 0),
       0
-    );
+    ) || 0;
 
     // Calculate total revenue from completed payments
-    const totalRevenue = services.reduce((sum: number, svc: any) => {
+    const totalRevenue = services?.reduce((sum: number, svc: any) => {
       const payments = svc.payments || [];
       const completedPayments = payments.filter(
         (p: any) => p.status === 'COMPLETED'

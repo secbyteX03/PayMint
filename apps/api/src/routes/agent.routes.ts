@@ -73,12 +73,8 @@ router.get('/address/:address', async (req: Request, res: Response) => {
   try {
     const agents = await agentService.getAgentByOwner(req.params.address);
     
-    if (!agents || agents.length === 0) {
-      return res.status(404).json({ error: 'Agent not found' });
-    }
-    
-    // Return the first agent (most recent if multiple)
-    res.json(agents[0]);
+    // Return all agents (can have multiple agents per address)
+    res.json(agents);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

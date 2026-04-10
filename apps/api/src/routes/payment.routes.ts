@@ -75,6 +75,22 @@ router.post('/refund', async (req: Request, res: Response) => {
   }
 });
 
+// Cancel payment (only for PENDING status, before escrow is created)
+router.post('/cancel', async (req: Request, res: Response) => {
+  try {
+    const { paymentId, reason } = req.body;
+    
+    if (!paymentId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const result = await paymentService.cancelPayment(paymentId, reason);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get payment status
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -100,12 +116,34 @@ router.get('/service/:serviceId', async (req: Request, res: Response) => {
   }
 });
 
-// Get all payments
+// Get payments by wallet address (buyer or seller)
+router.get('/address/:address', async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    if (!address) {
+      return res.status(400).json({ error: 'Wallet address is required' });
+    }
+    
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .or(`buyerAddress.eq.${address},sellerAddress.eq.${address}`)
+      .order('createdAt', { ascending: false });
+    
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all payments (without service join to avoid issues)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabase
       .from('payments')
-      .select('*, service:services(*)')
+      .select('*')
       .order('createdAt', { ascending: false });
     
     if (error) throw error;

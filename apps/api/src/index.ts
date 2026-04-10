@@ -61,6 +61,53 @@ app.get('/api/stats', async (req: Request, res: Response) => {
   }
 });
 
+// User-specific stats (by wallet address)
+app.get('/api/stats/user/:address', async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    
+    if (!address) {
+      return res.status(400).json({ error: 'Wallet address is required' });
+    }
+
+    // Get user's agent(s)
+    const { data: userAgents } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('ownerAddress', address);
+
+    const userAgentIds = userAgents?.map(a => a.id) || [];
+
+    // Get services for user's agent(s)
+    const { data: userServices } = await supabase
+      .from('services')
+      .select('*')
+      .in('agentId', userAgentIds.length > 0 ? userAgentIds : ['__empty__']);
+
+    // Get payments for user's agent(s)
+    const { data: userPayments } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('sellerAddress', address);
+
+    // Calculate stats
+    const completedPayments = userPayments?.filter(p => p.status === 'COMPLETED') || [];
+    const totalRevenue = completedPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const activeEscrows = userServices?.filter(s => s.isActive).length || 0;
+
+    res.json({
+      totalRevenue: totalRevenue.toFixed(2),
+      apiCalls: userPayments?.length || 0,
+      activeEscrows: activeEscrows,
+      agentCount: userAgents?.length || 0,
+      serviceCount: userServices?.length || 0,
+    });
+  } catch (error) {
+    console.error('Error fetching user stats:', error);
+    res.status(500).json({ error: 'Failed to fetch user stats' });
+  }
+});
+
 // API Routes
 app.use('/api/agents', agentRoutes);
 app.use('/api/services', serviceRoutes);

@@ -159,7 +159,7 @@ export class ServiceService {
   async listAllServicesWithAgent() {
     const { data, error } = await supabase
       .from('services')
-      .select('*, agent:agents(id, name, ownerAddress, status)');
+      .select('*');
 
     if (error) throw new Error(error.message);
     return data || [];
