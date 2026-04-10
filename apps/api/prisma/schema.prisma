@@ -1,3 +1,6 @@
+// Prisma Schema for AgentPay
+// Updated: 2026-04-09
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,75 +10,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// AGENT MODEL - AI agents registered in the marketplace
+// ============================================================================
 model Agent {
   id                String    @id @default(uuid())
-  ownerAddress       String    @unique
+  ownerAddress      String    // Wallet address (allows multiple agents per wallet)
   name              String
   description       String?
-  status            String    @default("ACTIVE")
-  apiEndpoint       String?
-  apiKey            String?
-  webhookUrl        String?
-  documentationUrl  String?
-  capabilities      String[]
-  pricingModel      String    @default("PER_CALL")
-  pricePerCall      Decimal?  @db.Decimal(15, 7)
-  pricePerMonth     Decimal?  @db.Decimal(15, 7)
+  status            String    @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  
+  // Agent configuration for buyers
+  apiEndpoint       String?   // The base URL where the agent's API is hosted
+  apiKey            String?   // API key for authentication
+  webhookUrl        String?   // Webhook URL for notifications
+  documentationUrl  String?   // Link to documentation
+  
+  // Capabilities and pricing
+  capabilities      String[]  // Array of capability tags
+  pricingModel      String    @default("PER_CALL") // PER_CALL, SUBSCRIPTION, ENTERPRISE
+  pricePerCall      Float?
+  pricePerMonth     Float?
+  
+  // Additional info
   logoUrl           String?
   websiteUrl        String?
   supportEmail      String?
   termsOfServiceUrl String?
+  
+  // Ratings
+  rating            Float     @default(0)
+  ratingCount       Int       @default(0)
+  
+  // Timestamps
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  services          Service[]
 }
 
+// ============================================================================
+// SERVICE MODEL - Services offered by agents
+// ============================================================================
 model Service {
   id             String    @id @default(uuid())
-  agentId        String
-  agent          Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId        String    // Reference to agent (no FK to avoid join issues)
   name           String
   description    String?
-  serviceType    String    @default("CUSTOM")
-  pricePerCall   Decimal   @db.Decimal(15, 7)
-  currency       String    @default("USDC")
+  serviceType    String    @default("CUSTOM") // CUSTOM, PREMIUM, ENTERPRISE
+  pricePerCall   Float
+  currency       String    @default("XLM") // XLM, USDC
   isActive       Boolean   @default(true)
   totalCalls     Int       @default(0)
-  endpoint       String?
-  method         String    @default("POST")
-  rateLimit      Int?
-  timeout        Int?
-  retryPolicy    String?
-  responseFormat String?
-  schema         String?
-  usageExamples  String[]
+  
+  // Service-specific configuration
+  endpoint       String?   // Specific endpoint path
+  method         String    @default("POST") // HTTP method
+  rateLimit      Int?      // Calls per minute
+  timeout        Int?      // Request timeout in seconds
+  retryPolicy    String?   // JSON string
+  
+  // Response info
+  responseFormat String?   // JSON, XML, etc.
+  schema         String?   // JSON schema
+  
+  // Usage documentation
+  usageExamples  String[]  // Array of usage examples
+  
+  // Timestamps
   createdAt      DateTime  @default(now())
-  payments       Payment[]
 }
 
+// ============================================================================
+// PAYMENT MODEL - Payment/escrow transactions
+// ============================================================================
 model Payment {
   id               String    @id @default(uuid())
-  serviceId        String
-  service          Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  buyerAddress     String
-  sellerAddress    String
-  amount           Decimal   @db.Decimal(15, 7)
-  currency        String
-  status           String    @default("PENDING")
-  transactionHash  String?
-  escrowId         String?
+  serviceId        String    // Reference to service (no FK to avoid join issues)
+  buyerAddress     String    // Buyer wallet address
+  sellerAddress    String    // Seller wallet address
+  amount           Float
+  currency         String
+  status           String    @default("PENDING") // PENDING, ESCROW_CREATED, COMPLETED, FAILED
+  transactionHash  String?   // Stellar transaction hash
+  escrowId         String?   // Escrow ID
+  
+  // Timestamps
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
 
+// ============================================================================
+// TRANSACTION MODEL - Stellar blockchain transactions
+// ============================================================================
 model Transaction {
   id         String   @id @default(uuid())
-  hash       String   @unique
-  type       String
+  hash       String   @unique // Transaction hash
+  type       String   // PAYMENT, ESCROW, RELEASE
   fromAddress String
   toAddress   String
-  amount     Decimal  @db.Decimal(15, 7)
+  amount     Float
   currency   String
-  status     String   @default("PENDING")
+  status     String   @default("PENDING") // PENDING, COMPLETED, FAILED
   createdAt  DateTime @default(now())
 }
