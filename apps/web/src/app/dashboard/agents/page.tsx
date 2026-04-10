@@ -57,16 +57,19 @@ export default function MyAgentsPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/address/${address}`);
       if (res.ok) {
-        const agent = await res.json();
-        if (agent) {
-          setAgents([agent]);
-          // Fetch services for this agent
+        const agentsData = await res.json();
+        // The API now returns an array of agents
+        const agentsList = Array.isArray(agentsData) ? agentsData : [agentsData];
+        setAgents(agentsList);
+        
+        // Fetch services for each agent
+        agentsList.forEach(async (agent: any) => {
           const servicesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services/agent/${agent.id}`);
           if (servicesRes.ok) {
             const services = await servicesRes.json();
-            setServicesMap({ [agent.id]: services });
+            setServicesMap((prev: any) => ({ ...prev, [agent.id]: services }));
           }
-        }
+        });
       }
     } catch (err) {
       console.error('Failed to fetch agents:', err);
@@ -591,7 +594,7 @@ export default function MyAgentsPage() {
           <h1>My Agents</h1>
           <p className="page-subtitle">Manage your AI agents and their services</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+        <button className="btn btn-primary" onClick={() => router.push('/dashboard/agents/new')}>
           <Plus size={18} />
           Create Agent
         </button>
@@ -606,7 +609,7 @@ export default function MyAgentsPage() {
           <p className="empty-desc">
             Create your first AI agent to start offering services on the marketplace.
           </p>
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          <button className="btn btn-primary" onClick={() => router.push('/dashboard/agents/new')}>
             <Plus size={18} />
             Create Your First Agent
           </button>
@@ -642,18 +645,7 @@ export default function MyAgentsPage() {
                         <button 
                           className="menu-item"
                           onClick={() => {
-                            // Edit - populate form with agent data and open create modal
-                            setAgentData({
-                              name: agent.name || '',
-                              description: agent.description || '',
-                              apiEndpoint: agent.apiEndpoint || '',
-                              webhookUrl: agent.webhookUrl || '',
-                              documentationUrl: agent.documentationUrl || '',
-                              pricingModel: agent.pricingModel || 'PER_CALL',
-                              pricePerCall: agent.pricePerCall?.toString() || '',
-                            });
-                            setSelectedAgent(agent); // Store agent being edited
-                            setShowCreateModal(true);
+                            router.push(`/dashboard/agents/${agent.id}/edit`);
                             setMenuOpen(null);
                           }}
                         >
