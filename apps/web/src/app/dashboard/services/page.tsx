@@ -395,6 +395,8 @@ export default function ServicesPage() {
           border: 1px solid var(--border);
           border-radius: 16px;
           overflow: hidden;
+          max-height: 600px;
+          overflow-y: auto;
         }
 
         table {
@@ -725,7 +727,7 @@ export default function ServicesPage() {
           <h1>Services</h1>
           <p className="page-subtitle">Manage all services across your agents</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+        <button className="btn btn-primary" onClick={() => router.push('/dashboard/services/new')}>
           <Code size={18} />
           Add Service
         </button>
@@ -765,7 +767,7 @@ export default function ServicesPage() {
               ? 'Try adjusting your filters'
               : 'Create your first service to get started'}
           </p>
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          <button className="btn btn-primary" onClick={() => router.push('/dashboard/services/new')}>
             <Code size={18} />
             Add Service
           </button>
@@ -843,7 +845,7 @@ export default function ServicesPage() {
                         <button 
                           className="menu-item"
                           onClick={() => {
-                            openEditModal(service);
+                            router.push(`/dashboard/services/${service.id}/edit`);
                           }}
                         >
                           <Edit size={14} />

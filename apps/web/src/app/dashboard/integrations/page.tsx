@@ -44,10 +44,10 @@ export default function IntegrationsPage() {
       if (isConnected && publicKey) {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/address/${publicKey}`);
         if (res.ok) {
-          const agent = await res.json();
-          if (agent) {
-            setAgents([agent]);
-          }
+          const agentsData = await res.json();
+          // API returns array of agents
+          const agentsList = Array.isArray(agentsData) ? agentsData : [agentsData];
+          setAgents(agentsList);
         }
       }
     } catch (err) {
