@@ -19,7 +19,7 @@ import { useStellar } from '@/context/StellarContext';
 
 export default function EscrowPage() {
   const router = useRouter();
-  const { publicKey, isConnected } = useStellar();
+  const { publicKey, isConnected, signAndSubmitTransaction } = useStellar();
   const [payments, setPayments] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
@@ -124,27 +124,83 @@ export default function EscrowPage() {
   });
 
   const handleRelease = async (paymentId: string) => {
+    if (!publicKey) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    // Find the payment
+    const payment = payments.find(p => p.id === paymentId);
+    if (!payment) {
+      alert('Payment not found');
+      return;
+    }
+
+    const confirmed = confirm(
+      `Release ${payment.amount} XLM to seller?\n\n` +
+      `This will send the escrowed funds to the seller address.`
+    );
+    
+    if (!confirmed) return;
+
     setReleasing(paymentId);
     try {
-      // For demo purposes, we'll generate a mock transaction hash
-      // In production, this would interact with Stellar or other blockchain
-      const mockTxHash = 'tx_' + Math.random().toString(36).substring(2, 15);
+      // Build payment transaction from buyer to seller
+      const buildRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/stellar/payment/build`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: publicKey,
+            to: payment.sellerAddress,
+            amount: payment.amount.toString(),
+            asset: 'XLM',
+          }),
+        }
+      );
       
+      if (!buildRes.ok) {
+        const errData = await buildRes.json();
+        throw new Error(errData.error || 'Failed to build transaction');
+      }
+      
+      const { transactionXdr } = await buildRes.json();
+      
+      // Sign and submit the transaction using Freighter
+      const result = await signAndSubmitTransaction(transactionXdr);
+      
+      if (!result) {
+        throw new Error('Transaction signing failed or was cancelled');
+      }
+
+      // Update payment status in database
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/release`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId, transactionHash: mockTxHash }),
+        body: JSON.stringify({ paymentId, transactionHash: result.hash }),
       });
       
       if (res.ok) {
-        // Refresh data after release
+        alert(
+          `Funds released successfully!\n\n` +
+          `Transaction Hash: ${result.hash.slice(0, 12)}...\n` +
+          `Amount: ${payment.amount} XLM\n\n` +
+          `The seller has received the payment.`
+        );
         fetchData();
       } else {
         const data = await res.json();
-        console.error('Failed to release:', data.error);
+        // Even if API fails, the XLM was sent - just log error
+        console.error('Failed to update payment status:', data.error);
+        alert(
+          `Payment sent but status update failed.\n` +
+          `Hash: ${result.hash}`
+        );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to release payment:', err);
+      alert(`Error: ${err.message}`);
     } finally {
       setReleasing(null);
     }
