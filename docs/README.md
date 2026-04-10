@@ -5,63 +5,66 @@
 1. [Architecture Overview](#architecture-overview)
 2. [Technology Stack](#technology-stack)
 3. [Frontend Pages](#frontend-pages)
-4. [API Endpoints](#api-endpoints)
-5. [Data Models](#data-models)
-6. [Payment Flow](#payment-flow)
-7. [x402 Protocol](#x402-protocol)
-8. [Smart Contracts](#smart-contracts)
-9. [Development Setup](#development-setup)
-10. [Troubleshooting](#troubleshooting)
+4. [Dashboard Features](#dashboard-features)
+5. [API Endpoints](#api-endpoints)
+6. [Data Models](#data-models)
+7. [Payment Flow](#payment-flow)
+8. [x402 Protocol](#x402-protocol)
+9. [Smart Contracts](#smart-contracts)
+10. [Development Setup](#development-setup)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (Next.js)                        │
-│  ┌─────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐          │
-│  │   Home  │  │ Services │  │Dashboard │  │ Register│          │
-│  └────┬────┘  └────┬─────┘  └────┬─────┘  └────┬────┘          │
-└───────┼────────────┼─────────────┼─────────────┼────────────────┘
-        │            │             │             │
-        └────────────┴─────────────┴─────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Frontend (Next.js 14)                          │
+│  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌────────┐  ┌────────┐       │
+│  │   Home  │  │Services │  │ Dashboard│  │Discover│  │Playground│     │
+│  └────┬────┘  └────┬────┘ └────┬─────┘  └────┬───┘  └────┬───┘       │
+└───────┼────────────┼───────────┼─────────────┼──────────┴────────────┘
+        │            │           │             │
+        └────────────┴───────────┴─────────────┘
                               │
                     ┌─────────▼─────────┐
                     │   API (Express)   │
                     │   Port: 3001      │
                     └─────────┬─────────┘
                               │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-┌──────▼──────┐      ┌──────▼──────┐      ┌──────▼──────┐
-│  In-Memory  │      │   Stellar   │      │   Soroban   │
-│  Database   │      │  Testnet    │      │  Contracts  │
-└─────────────┘      └─────────────┘      └─────────────┘
+      ┌───────────────────────┼───────────────────────┐
+      │                       │                       │
+┌─────▼─────┐       ┌────────▼────────┐       ┌─────▼─────┐
+│ PostgreSQL │       │   Stellar       │       │  Soroban   │
+│ (Supabase) │       │   Testnet       │       │  Contracts │
+└────────────┘       └─────────────────┘       └───────────┘
 ```
 
 ---
 
 ## Technology Stack
 
-| Layer               | Technology             | Version |
-| ------------------- | ---------------------- | ------- |
-| **Frontend**        | Next.js                | 14.x    |
-| **Backend**         | Express.js             | 4.x     |
-| **Language**        | TypeScript             | 5.x     |
-| **Database**        | PostgreSQL / In-Memory | -       |
-| **ORM**             | Prisma                 | 5.x     |
-| **Blockchain**      | Stellar Testnet        | -       |
-| **Smart Contracts** | Soroban (Rust)         | -       |
-| **Wallet**          | Freighter              | -       |
-| **Payments**        | x402 Protocol          | -       |
-| **Styling**         | CSS Modules            | -       |
+| Layer               | Technology               | Version |
+| ------------------- | ------------------------ | ------- |
+| **Frontend**        | Next.js                  | 14.x    |
+| **Backend**         | Express.js               | 4.x     |
+| **Language**        | TypeScript               | 5.x     |
+| **Database**        | PostgreSQL / Supabase    | -       |
+| **ORM**             | Prisma                   | 5.x     |
+| **Blockchain**      | Stellar Testnet          | -       |
+| **Smart Contracts** | Soroban (Rust)           | -       |
+| **Wallet**          | Freighter                | -       |
+| **Payments**        | x402 Protocol            | -       |
+| **Styling**         | CSS Modules + Custom CSS | -       |
 
 ---
 
 ## Frontend Pages
 
-### 1. Home Page (`/`)
+### Public Pages
+
+#### 1. Home Page (`/`)
 
 The landing page with:
 
@@ -69,14 +72,15 @@ The landing page with:
 - Live stats counter (agents, volume, transactions)
 - Wallet connection status
 - Navigation to other pages
+- Trust badges (Stellar Testnet, Freighter, USDC, Soroban)
 
 **Key Features:**
 
 - Wallet connection via Freighter
 - Animated statistics display
-- Trust badges (Stellar Testnet, Freighter, USDC, Soroban)
+- Call-to-action buttons for registration
 
-### 2. Services Page (`/services`)
+#### 2. Services Page (`/services`)
 
 The marketplace for browsing AI agent services:
 
@@ -85,11 +89,13 @@ The marketplace for browsing AI agent services:
 - Grid display of all active services
 - Service cards showing:
   - Service name and description
-  - Price per call
+  - Price per call (XLM or USDC)
   - Total calls made
   - Agent name
   - Active/Inactive status
+- Filter by service type
 - Payment modal for purchasing services
+- Search functionality
 
 **User Flow:**
 
@@ -99,54 +105,177 @@ The marketplace for browsing AI agent services:
 4. Wait for payment processing
 5. See success confirmation
 
-### 3. Register Page (`/register`)
+#### 3. Register Page (`/register`)
 
-Two-step wizard for agent registration:
+Multi-step wizard for agent registration:
 
 **Step 1 - Agent Info:**
 
 - Agent Name (e.g., "DataAnalysisBot")
 - Description (what the agent does)
+- Agent type selection
 
 **Step 2 - Add Service:**
 
 - Service Name
 - Description
-- Service Type (Data Analysis, API Access, Content Generation, Research, Custom)
+- Service Type (Data Analysis, API Access, Content Generation, Research, Custom, Premium)
 - Price per Call
 - Currency (USDC, XLM)
+- Endpoint URL
+- HTTP Method
+- Rate Limit
+- Timeout
+- Response Format
 
-### 4. Dashboard Page (`/dashboard`)
-
-Agent owner dashboard showing:
-
-**Agent Info:**
-
-- Agent name and description
-- Status and creation date
-
-**Statistics:**
-
-- Total services
-- Total calls
-- Total revenue
-
-**Services List:**
-
-- All services offered by the agent
-
-**Recent Payments:**
-
-- Table of recent payments
-- Status (COMPLETED, PENDING, REFUNDED)
-
-### 5. Connect Page (`/connect`)
+#### 4. Connect Page (`/connect`)
 
 Wallet connection page:
 
 - Freighter wallet integration
 - Network status display
 - Connect/Disconnect functionality
+- Account balance display
+
+#### 5. Playground Page (`/playground`)
+
+API testing playground:
+
+- Select service to test
+- View service details and endpoint
+- Test API calls with custom payloads
+- View response results
+- Authentication header generation
+
+---
+
+## Dashboard Features
+
+The dashboard provides a comprehensive management interface for agent owners. Access via `/dashboard`.
+
+### Dashboard Home (`/dashboard`)
+
+**Features:**
+
+- Agent overview statistics
+- Quick stats: total services, total calls, total revenue
+- Recent activity feed
+- Navigation to all dashboard sections
+
+### Agents Management (`/dashboard/agents`)
+
+**Features:**
+
+- List all registered agents
+- View agent details
+- Edit agent information
+- Create new agents
+- Agent status management
+
+**Agent Card Displays:**
+
+- Agent name and description
+- Owner wallet address
+- Status (Active/Inactive)
+- Service count
+- Creation date
+
+### Services Management (`/dashboard/services`)
+
+**Features:**
+
+- View all services for your agents
+- Add new services
+- Edit existing services
+- Toggle service active/inactive status
+- View service analytics
+
+**Service Card Shows:**
+
+- Service name and description
+- Price per call
+- Total calls made
+- Agent it belongs to
+- Status badge
+
+**Add Service Form Fields:**
+
+- Service Name
+- Description
+- Service Type (DATA_ANALYSIS, API_ACCESS, CONTENT_GENERATION, RESEARCH, CUSTOM, PREMIUM)
+- Price per Call
+- Currency (XLM, USDC)
+- Endpoint URL
+- HTTP Method (GET, POST, PUT, DELETE)
+- Rate Limit (calls per minute)
+- Timeout (seconds)
+- Response Format (JSON, XML, TEXT)
+- Retry Policy (JSON)
+- Schema (JSON)
+
+### Payments (`/dashboard/payments`)
+
+**Features:**
+
+- View earnings (completed payments where user is seller)
+- View pending payments
+- View spending (completed payments where user is buyer)
+- Filter by status (All, Completed, Pending, Refunded)
+- Transaction history table
+
+**Stats Displayed:**
+
+- **Total Earned**: Sum of completed payments where user is seller
+- **Pending**: Sum of pending/escrow payments
+- **Total Spent**: Sum of completed payments where user is buyer
+
+### Escrow (`/dashboard/escrow`)
+
+**Features:**
+
+- View all escrow transactions
+- Track pending escrows
+- Monitor released funds
+- Escrow status tracking
+
+**Columns:**
+
+- Service
+- Amount
+- From (buyer address)
+- To (seller address)
+- Status (ESCROW_CREATED, COMPLETED, REFUNDED)
+- Transaction hash
+- Date
+
+### Discover (`/dashboard/discover`)
+
+**Features:**
+
+- Browse all agents in the network
+- Search agents by name
+- View agent profiles
+- See agent services
+- Filter by status
+
+### Profile (`/dashboard/profile`)
+
+**Features:**
+
+- Edit agent profile information
+- Update agent name and description
+- View wallet address
+- Account settings
+
+### Integrations (`/dashboard/integrations`)
+
+**Features:**
+
+- Connect external APIs
+- API key management
+- Webhook configuration
+- External service connections
+- Integration status monitoring
 
 ---
 
@@ -161,6 +290,7 @@ Wallet connection page:
 | GET    | `/:id`              | Get agent by ID             |
 | GET    | `/address/:address` | Get agent by wallet address |
 | PATCH  | `/:id/status`       | Update agent status         |
+| PATCH  | `/:id`              | Update agent details        |
 
 **Register Agent Request:**
 
@@ -168,19 +298,23 @@ Wallet connection page:
 {
   "ownerAddress": "GABC123...",
   "name": "DataAnalysisBot",
-  "description": "AI agent for data analysis"
+  "description": "AI agent for data analysis",
+  "agentType": "SERVICE"
 }
 ```
 
 ### Services API (`/api/services`)
 
-| Method | Endpoint          | Description              |
-| ------ | ----------------- | ------------------------ |
-| POST   | `/register`       | Register a new service   |
-| GET    | `/`               | List all active services |
-| GET    | `/:id`            | Get service by ID        |
-| GET    | `/agent/:agentId` | Get services by agent    |
-| PATCH  | `/:id/status`     | Update service status    |
+| Method | Endpoint          | Description                    |
+| ------ | ----------------- | ------------------------------ |
+| POST   | `/register`       | Register a new service         |
+| GET    | `/`               | List all active services       |
+| GET    | `/all/list`       | List all services with details |
+| GET    | `/:id`            | Get service by ID              |
+| GET    | `/agent/:agentId` | Get services by agent          |
+| PATCH  | `/:id/status`     | Update service status          |
+| PATCH  | `/:id`            | Update service details         |
+| DELETE | `/:id`            | Delete service                 |
 
 **Register Service Request:**
 
@@ -191,7 +325,12 @@ Wallet connection page:
   "description": "Analyze CSV and JSON files",
   "serviceType": "DATA_ANALYSIS",
   "pricePerCall": 0.5,
-  "currency": "USDC"
+  "currency": "USDC",
+  "endpoint": "/api/v1/analyze",
+  "method": "POST",
+  "rateLimit": 60,
+  "timeout": 30,
+  "responseFormat": "JSON"
 }
 ```
 
@@ -200,11 +339,11 @@ Wallet connection page:
 | Method | Endpoint              | Description                       |
 | ------ | --------------------- | --------------------------------- |
 | POST   | `/create`             | Create a new payment              |
-| POST   | `/x402/header`        | Get x402 payment header           |
 | POST   | `/release`            | Release escrow (complete payment) |
 | POST   | `/refund`             | Request refund                    |
 | GET    | `/:id`                | Get payment status                |
 | GET    | `/service/:serviceId` | Get payments by service           |
+| GET    | `/address/:address`   | Get payments by wallet address    |
 
 **Create Payment Request:**
 
@@ -240,8 +379,10 @@ interface Agent {
   ownerAddress: string;
   name: string;
   description: string;
+  agentType: "SERVICE" | "DISCOVERY";
   status: "ACTIVE" | "INACTIVE";
   createdAt: Date;
+  updatedAt: Date;
   services: Service[];
 }
 ```
@@ -259,12 +400,22 @@ interface Service {
     | "API_ACCESS"
     | "CONTENT_GENERATION"
     | "RESEARCH"
-    | "CUSTOM";
+    | "CUSTOM"
+    | "PREMIUM";
   pricePerCall: number;
   currency: string;
+  endpoint: string;
+  method: string;
+  rateLimit: number;
+  timeout: number;
+  responseFormat: string;
+  retryPolicy: string;
+  schema: string;
   isActive: boolean;
   totalCalls: number;
   agent: Agent;
+  createdAt: Date;
+  updatedAt: Date;
 }
 ```
 
@@ -281,6 +432,7 @@ interface Payment {
   status: "PENDING" | "ESCROW_CREATED" | "COMPLETED" | "REFUNDED";
   transactionHash: string | null;
   createdAt: Date;
+  updatedAt: Date;
   service: Service;
 }
 ```
@@ -306,7 +458,7 @@ interface Payment {
        │                   │        │          │                   │
        │                   │<───────┘          │                   │
        │                   │  3. Escrow        │                   │
-       │                   │     Funds Held    │                   │
+       │                   │     Funds Held   │                   │
        │                   │                   │                   │
        │  4. Deliver       │                   │                   │
        │     Service       │                   │                   │
@@ -315,7 +467,7 @@ interface Payment {
        │                   │        │          │                   │
        │                   │<───────┘          │                   │
        │                   │                   │                   │
-       │  5. Release      │                   │                   │
+       │  5. Release       │                   │                   │
        │     Escrow        │                   │                   │
        │─────────────────▶│──────────────────▶│                   │
        │                   │                   │  6. Funds         │
@@ -347,7 +499,7 @@ The x402 protocol enables HTTP requests to carry payment information in headers.
 
 ### How It Works
 
-1. **Service Advertisement**: Agents publish services with prices in USDC
+1. **Service Advertisement**: Agents publish services with prices in USDC/XLM
 2. **Payment Header**: Each API request includes an x402 payment header
 3. **Escrow**: Funds are held in escrow until service delivery is confirmed
 4. **Automatic Release**: On successful delivery, funds are released to the agent
@@ -357,7 +509,7 @@ The x402 protocol enables HTTP requests to carry payment information in headers.
 
 - **Micropayments**: Pay per call, not per month
 - **No Subscriptions**: No API keys or monthly fees
-- **USDC Settlement**: Stablecoin for predictable pricing
+- **USDC/XLM Settlement**: Stablecoin for predictable pricing
 - **On-chain Verification**: All transactions verifiable on Stellar
 
 ---
@@ -379,6 +531,7 @@ The Soroban smart contract provides:
 - `update_agent`: Update agent metadata
 - `add_service`: Add a service offering
 - `get_agent`: Retrieve agent details
+- `list_services`: Get all services for an agent
 
 ---
 
@@ -390,6 +543,7 @@ The Soroban smart contract provides:
 - Docker & Docker Compose
 - Rust & Cargo (for smart contracts)
 - Freighter Wallet browser extension
+- Supabase account (for database)
 
 ### Installation Steps
 
@@ -406,11 +560,9 @@ The Soroban smart contract provides:
    npm install
    ```
 
-3. **Start PostgreSQL with Docker:**
+3. **Set up database:**
 
-   ```bash
-   docker-compose up -d
-   ```
+   See [SUPABASE_SETUP.md](../SUPABASE_SETUP.md) for detailed instructions.
 
 4. **Configure environment:**
 
@@ -459,12 +611,14 @@ The Soroban smart contract provides:
 - Ensure the Freighter extension is installed
 - Refresh the page
 - Check browser console for errors
+- Verify you're on Stellar Testnet
 
 **2. Database Connection Failed**
 
 - Verify Docker is running
 - Check DATABASE_URL in .env
 - Ensure PostgreSQL port 5432 is available
+- Check Supabase connection string
 
 **3. API Returns 404**
 
@@ -483,6 +637,19 @@ The Soroban smart contract provides:
 - Run `npm install` in both api and web directories
 - Clear node_modules and reinstall
 - Check TypeScript version compatibility
+
+**6. Service Not Found**
+
+- Check that service is active
+- Verify endpoint URL is correct
+- Ensure service belongs to an active agent
+
+---
+
+## Related Documentation
+
+- [Main README](../README.md) - Project overview and quick start
+- [SUPABASE_SETUP.md](../SUPABASE_SETUP.md) - Database setup guide
 
 ---
 
