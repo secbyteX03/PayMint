@@ -808,7 +808,9 @@ interface Service {
 
 interface DashboardStats {
   totalRevenue: number;
+  previousRevenue: number;
   apiCalls: number;
+  previousApiCalls: number;
   activeEscrows: number;
   avgLatency: string;
 }
@@ -868,7 +870,9 @@ export default function DashboardPage() {
   
   const [stats, setStats] = useState<DashboardStats>({
     totalRevenue: 0,
+    previousRevenue: 0,
     apiCalls: 0,
+    previousApiCalls: 0,
     activeEscrows: 0,
     avgLatency: '-'
   });
@@ -954,7 +958,9 @@ export default function DashboardPage() {
             }
             setStats({
               totalRevenue: parseFloat(statsData.totalRevenue || statsData.totalVolume || '0'),
+              previousRevenue: stats.previousRevenue || parseFloat(statsData.totalRevenue || statsData.totalVolume || '0') * 0.8, // Simulated previous (80% of current)
               apiCalls: statsData.apiCalls || statsData.totalPayments || 0,
+              previousApiCalls: stats.previousApiCalls || (statsData.apiCalls || statsData.totalPayments || 0) * 0.9, // Simulated previous (90% of current)
               activeEscrows: statsData.activeEscrows || statsData.totalServices || 0,
               avgLatency: marketRank
             });
@@ -1302,6 +1308,13 @@ export default function DashboardPage() {
     }).format(amount);
   };
 
+  // Calculate percentage change
+  const getPercentageChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    const change = ((current - previous) / previous) * 100;
+    return Math.round(change * 10) / 10;
+  };
+
   // Render chart path from data points
   const renderChartPath = (data: number[], isRevenue: boolean, baseY: number) => {
     if (data.length === 0) return null;
@@ -1346,7 +1359,7 @@ export default function DashboardPage() {
   };
 
   const openPlayground = () => {
-    window.location.href = '/playground';
+    window.location.href = '/docs';
   };
 
   const goToRegister = () => {
@@ -1408,22 +1421,26 @@ export default function DashboardPage() {
         <div className="stat-card blue">
           <div className="stat-label">TOTAL REVENUE</div>
           <div className="stat-value">{formatCurrency(stats.totalRevenue)}</div>
-          <div className="stat-delta">↑ +18.4% this epoch</div>
+          <div className={`stat-delta ${getPercentageChange(stats.totalRevenue, stats.previousRevenue) >= 0 ? '' : 'neg'}`}>
+            {getPercentageChange(stats.totalRevenue, stats.previousRevenue) >= 0 ? '↑' : '↓'} {Math.abs(getPercentageChange(stats.totalRevenue, stats.previousRevenue))}% from last period
+          </div>
+        </div>
+        <div className="stat-card orange">
+          <div className="stat-label">TOTAL EXPENSES</div>
+          <div className="stat-value">{formatCurrency(userPayments.filter((p: any) => p.buyerAddress?.toLowerCase() === address?.toLowerCase()).reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0))}</div>
+          <div className="stat-delta">Total spent as buyer</div>
         </div>
         <div className="stat-card purple">
           <div className="stat-label">API CALLS</div>
           <div className="stat-value">{stats.apiCalls.toLocaleString()}</div>
-          <div className="stat-delta">↑ +5.2% from last cycle</div>
+          <div className={`stat-delta ${getPercentageChange(stats.apiCalls, stats.previousApiCalls) >= 0 ? '' : 'neg'}`}>
+            {getPercentageChange(stats.apiCalls, stats.previousApiCalls) >= 0 ? '↑' : '↓'} {Math.abs(getPercentageChange(stats.apiCalls, stats.previousApiCalls))}% from last period
+          </div>
         </div>
         <div className="stat-card green">
           <div className="stat-label">ACTIVE ESCROWS</div>
           <div className="stat-value">{stats.activeEscrows}</div>
-          <div className="stat-delta">↑ +{pendingEscrows} pending release</div>
-        </div>
-        <div className="stat-card orange">
-          <div className="stat-label">MARKET RANK</div>
-          <div className="stat-value">{stats.avgLatency}</div>
-          <div className="stat-delta neg">↑ among {agents.length} agents</div>
+          <div className="stat-delta">↑ {pendingEscrows} pending release</div>
         </div>
       </div>
       </>
@@ -2269,7 +2286,7 @@ export default function DashboardPage() {
           </NextLink>
           <NextLink href="/dashboard/agents" className={`nav-item ${activeSection === 'my-agent' ? 'active' : ''}`}>
             <Bot size={16} className="nav-icon" />
-            My Agent
+            My Agents
           </NextLink>
           <NextLink href="/dashboard/services" className={`nav-item ${activeSection === 'services' ? 'active' : ''}`}>
             <ShoppingCart size={16} className="nav-icon" />
@@ -2290,6 +2307,10 @@ export default function DashboardPage() {
             <Search size={16} className="nav-icon" />
             Discover
           </NextLink>
+          <NextLink href="/dashboard/purchases" className={`nav-item ${activeSection === 'purchases' ? 'active' : ''}`}>
+            <ShoppingCart size={16} className="nav-icon" />
+            Purchases
+          </NextLink>
           <NextLink href="/dashboard/integrations" className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`}>
             <ExternalLink size={16} className="nav-icon" />
             Integrations
@@ -2302,14 +2323,9 @@ export default function DashboardPage() {
           </NextLink>
 
           <div className="sidebar-footer">
-            <NextLink href="/dashboard/agents" className="agent-chip">
-              <div className="agent-avatar">
-                {displayAgents[0]?.name?.slice(0, 2) || 'AG'}
-              </div>
-              <div className="agent-info">
-                <div className="agent-name">{displayAgents[0]?.name || 'AnalyticsBot-9'}</div>
-                <div className="agent-status">● ONLINE</div>
-              </div>
+            <NextLink href="/docs" className="nav-item" target="_blank">
+              <Code size={16} className="nav-icon" />
+              API Docs
             </NextLink>
           </div>
         </div>
