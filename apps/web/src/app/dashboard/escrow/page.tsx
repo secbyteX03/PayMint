@@ -26,6 +26,11 @@ export default function EscrowPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
   const [releasing, setReleasing] = useState<string | null>(null);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+  
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [refunding, setRefunding] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -122,6 +127,18 @@ export default function EscrowPage() {
     if (filterStatus === 'all') return true;
     return e.status === filterStatus;
   });
+  
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus]);
+  
+  // Paginate
+  const paginatedEscrows = filteredEscrows.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  const totalPages = Math.ceil(filteredEscrows.length / ITEMS_PER_PAGE);
 
   const handleRelease = async (paymentId: string) => {
     if (!publicKey) {
@@ -1180,7 +1197,7 @@ export default function EscrowPage() {
         </div>
       ) : (
         <div className="escrow-list">
-          {filteredEscrows.map(escrow => {
+          {paginatedEscrows.map(escrow => {
             const statusInfo = getStatusInfo(escrow.status);
             const StatusIcon = statusInfo.icon;
             
@@ -1201,6 +1218,11 @@ export default function EscrowPage() {
                   </div>
                   <div className="escrow-meta">
                     ID: {escrow.id.slice(0, 12)}... • {new Date(escrow.createdAt).toLocaleDateString()}
+                    {escrow.status === 'REFUND_REQUESTED' && escrow.refundReason && (
+                      <div style={{ marginTop: '4px', color: '#ff9500', fontSize: '11px' }}>
+                        Reason: {escrow.refundReason}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="escrow-amount">
@@ -1215,8 +1237,8 @@ export default function EscrowPage() {
                 {/* Action Buttons - Only show for PENDING, ESCROW_CREATED, REFUND_REQUESTED */}
                 {(escrow.status === 'PENDING' || escrow.status === 'ESCROW_CREATED' || escrow.status === 'REFUND_REQUESTED') && (
                   <div className="action-buttons">
-                    {/* Release Button - Only for ESCROW_CREATED (funds are locked) */}
-                    {escrow.status === 'ESCROW_CREATED' && (
+                    {/* Release Button - Only for ESCROW_CREATED and only if user is the BUYER */}
+                    {escrow.status === 'ESCROW_CREATED' && escrow.buyerAddress === publicKey && (
                       <button 
                         className="release-btn"
                         onClick={() => handleRelease(escrow.id)}
@@ -1231,8 +1253,8 @@ export default function EscrowPage() {
                       </button>
                     )}
                     
-                    {/* Cancel Button - Only for PENDING (funds not yet locked) */}
-                    {escrow.status === 'PENDING' && (
+                    {/* Cancel Button - Only for PENDING and only if user is the BUYER */}
+                    {escrow.status === 'PENDING' && escrow.buyerAddress === publicKey && (
                       <button 
                         className="cancel-btn"
                         onClick={() => setShowCancelConfirm(escrow.id)}
@@ -1243,8 +1265,8 @@ export default function EscrowPage() {
                       </button>
                     )}
                     
-                    {/* Refund Button - Only for ESCROW_CREATED (funds are locked, can request refund) */}
-                    {escrow.status === 'ESCROW_CREATED' && (
+                    {/* Refund Button - Only for ESCROW_CREATED and only if user is the BUYER */}
+                    {escrow.status === 'ESCROW_CREATED' && escrow.buyerAddress === publicKey && (
                       <button 
                         className="refund-btn"
                         onClick={() => setShowRefundConfirm(escrow.id)}
@@ -1255,8 +1277,8 @@ export default function EscrowPage() {
                       </button>
                     )}
 
-                    {/* Seller Actions for REFUND_REQUESTED */}
-                    {escrow.status === 'REFUND_REQUESTED' && (
+                    {/* Seller Actions for REFUND_REQUESTED - Only show for SELLER */}
+                    {escrow.status === 'REFUND_REQUESTED' && escrow.sellerAddress === publicKey && (
                       <>
                         <button 
                           className="approve-btn"
@@ -1275,8 +1297,8 @@ export default function EscrowPage() {
                       </>
                     )}
 
-                    {/* Dispute Button - For ESCROW_CREATED and REFUND_REQUESTED */}
-                    {(escrow.status === 'ESCROW_CREATED' || escrow.status === 'REFUND_REQUESTED') && (
+                    {/* Dispute Button - For REFUND_REQUESTED: Buyer can dispute if refund requested, or Seller can dispute if they rejected refund */}
+                    {escrow.status === 'REFUND_REQUESTED' && (
                       <button 
                         className="dispute-btn"
                         onClick={() => setShowDisputeConfirm(escrow.id)}
@@ -1387,6 +1409,55 @@ export default function EscrowPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '24px', padding: '16px' }}>
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            style={{
+              padding: '10px 20px',
+              background: currentPage === 1 ? 'var(--surface2)' : 'var(--accent)',
+              border: 'none',
+              borderRadius: '8px',
+              color: currentPage === 1 ? 'var(--muted)' : '#080c14',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              opacity: currentPage === 1 ? 0.5 : 1,
+            }}
+          >
+            ← Previous
+          </button>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: '12px', color: 'var(--muted)' }}>
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            style={{
+              padding: '10px 20px',
+              background: currentPage === totalPages ? 'var(--surface2)' : 'var(--accent)',
+              border: 'none',
+              borderRadius: '8px',
+              color: currentPage === totalPages ? 'var(--muted)' : '#080c14',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              opacity: currentPage === totalPages ? 0.5 : 1,
+            }}
+          >
+            Next →
+          </button>
         </div>
       )}
 
