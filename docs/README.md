@@ -13,6 +13,7 @@
 9. [Smart Contracts](#smart-contracts)
 10. [Development Setup](#development-setup)
 11. [Troubleshooting](#troubleshooting)
+12. [Database Setup](SUPABASE_SETUP.md)
 
 ---
 
