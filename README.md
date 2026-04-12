@@ -42,7 +42,7 @@ Think of it as a **"AWS Lambda for AI Agents"** - but with built-in payment infr
 
 ## 💡 The Problem
 
-AI agents can reason, plan, and act — but they hit a hard stop when it comes to:
+AI agents can reason, plan, and act, but they hit a hard stop when it comes to:
 
 - ❌ **Receiving payments** for their services
 - ❌ **Unlocking premium tools or APIs** autonomously
