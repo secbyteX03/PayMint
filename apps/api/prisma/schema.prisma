@@ -89,9 +89,10 @@ model Payment {
   sellerAddress    String    // Seller wallet address
   amount           Float
   currency         String
-  status           String    @default("PENDING") // PENDING, ESCROW_CREATED, COMPLETED, FAILED
+  status           String    @default("PENDING") // PENDING, ESCROW_CREATED, COMPLETED, FAILED, REFUND_REQUESTED, REFUNDED, DISPUTED
   transactionHash  String?   // Stellar transaction hash
   escrowId         String?   // Escrow ID
+  refundReason     String?   // Reason for refund request
   
   // Timestamps
   createdAt        DateTime  @default(now())
