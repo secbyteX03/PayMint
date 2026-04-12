@@ -147,11 +147,11 @@ export class StellarService {
         TESTNET_NETWORK_PASSPHRASE
       );
       
-      const result = await server.submitTransaction(transaction) as { hash: string; ledger: number; created_at: string };
+      const result = await server.submitTransaction(transaction);
       return {
         hash: result.hash,
         ledger: result.ledger,
-        timestamp: result.created_at,
+        timestamp: new Date().toISOString(),
       };
     } catch (error) {
       console.error('Error submitting transaction:', error);
@@ -229,11 +229,11 @@ export class StellarService {
         throw new Error('Failed to create test account');
       }
       
-      const result = await response.json();
+      const result = await response.json() as any;
       return {
         address: publicKey,
         message: 'Test account created successfully',
-        hash: result.hash,
+        hash: result.hash || 'unknown',
       };
     } catch (error) {
       console.error('Error creating test account:', error);
