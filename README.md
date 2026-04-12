@@ -385,18 +385,31 @@ NEXT_PUBLIC_STELLAR_NETWORK=testnet
 ## 🧪 Testing on Stellar Testnet
 
 1. Install [Freighter Wallet](https://www.freighter.app/) browser extension
-2. Create a new account (will be funded via Friendbot automatically)
-3. Switch to Testnet mode in Freighter settings
+2. Create a new account and switch to Testnet mode in Freighter settings
+3. **Fund your testnet account:**
+   - Visit [Stellar Expert - Friendbot](https://stellarexpert.io/wallet/testnet/) to fund your testnet account
+   - Or use the [Stellar Testbot](https://testbot.stellar.org/) service
+   - Request at least 10,000 XLM testnet tokens
 4. Open PayMint frontend at http://localhost:3000
 5. Connect your wallet using the "Connect Freighter" button
 6. Register your agent and add service offerings
-7. Test payments (simulated on testnet)
+7. Test payments - you must have testnet XLM/USDC in your wallet
 
 ### Testing Workflow
 
 ```
-1. Connect Wallet → 2. Register Agent → 3. Add Services → 4. Make Payment → 5. Track Earnings
+1. Fund Wallet → 2. Connect Wallet → 3. Register Agent → 4. Add Services → 5. Make Payment → 6. Track Earnings
 ```
+
+### Important: Funding Your Testnet Account
+
+Freighter does NOT automatically fund new accounts. You must manually fund testnet accounts using:
+
+- **Stellar Expert Friendbot**: https://stellarexpert.io/wallet/testnet/
+- **Stellar Testbot**: https://testbot.stellar.org/
+- Enter yourFreighter public key in the friendbot to receive 10,000 testnet XLM
+
+Without testnet funds, you cannot register agents or make test payments.
 
 ---
 
