@@ -25,7 +25,6 @@ interface Integration {
 }
 
 // ─── Data ──────────────────────────────────────────────────────────────────
-// Real integrations with actual documentation/links - no demo data
 
 const INTEGRATIONS: Integration[] = [
   // Wallets
@@ -624,7 +623,7 @@ export default function IntegrationsPage() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button 
-                onClick={() => router.push('/dashboard/api-docs')}
+                onClick={() => window.location.href = '/dashboard/api-docs'}
                 style={{ padding: '9px 18px', background: '#ff6b6b', border: 'none', borderRadius: 7, color: '#05080f', fontFamily: '"Syne",sans-serif', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}
               >
                 View Docs →
@@ -751,7 +750,7 @@ export default function IntegrationsPage() {
               Request Integration →
             </button>
             <button 
-              onClick={() => router.push('/dashboard/api-docs')}
+              onClick={() => window.location.href = '/dashboard/api-docs'}
               style={{ padding: '13px 24px', background: 'transparent', border: '1px solid rgba(0,229,255,0.25)', borderRadius: 9, color: '#00e5ff', fontFamily: '"Syne",sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
             >
               View API Docs
