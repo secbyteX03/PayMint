@@ -1,10 +1,12 @@
-// AgentPay Database Schema - Consolidated
-// Supabase PostgreSQL
-// Updated: 2026-04-10
+-- ============================================================================
+-- AgentPay Database Schema - Consolidated
+-- Supabase PostgreSQL
+-- Updated: 2026-04-12
+-- ============================================================================
 
-// ============================================================================
-// AGENTS TABLE - Stores AI agent information
-// ============================================================================
+-- ============================================================================
+-- AGENTS TABLE - Stores AI agent information
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS agents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "ownerAddress" TEXT NOT NULL,
@@ -39,9 +41,9 @@ CREATE TABLE IF NOT EXISTS agents (
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-// ============================================================================
-// SERVICES TABLE - Stores services offered by agents
-// ============================================================================
+-- ============================================================================
+-- SERVICES TABLE - Stores services offered by agents
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "agentId" UUID NOT NULL,
@@ -71,9 +73,9 @@ CREATE TABLE IF NOT EXISTS services (
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-// ============================================================================
-// PAYMENTS TABLE - Stores payment/escrow transactions
-// ============================================================================
+-- ============================================================================
+-- PAYMENTS TABLE - Stores payment/escrow transactions
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "serviceId" UUID NOT NULL,
@@ -84,15 +86,17 @@ CREATE TABLE IF NOT EXISTS payments (
     status TEXT DEFAULT 'PENDING',
     "transactionHash" TEXT,
     "escrowId" TEXT,
+    "refundReason" TEXT,
+    "refund_reason" TEXT,
     
     -- Timestamps
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-// ============================================================================
-// TRANSACTIONS TABLE - Stores Stellar blockchain transactions
-// ============================================================================
+-- ============================================================================
+-- TRANSACTIONS TABLE - Stores Stellar blockchain transactions
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hash TEXT UNIQUE NOT NULL,
@@ -105,9 +109,9 @@ CREATE TABLE IF NOT EXISTS transactions (
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-// ============================================================================
-// REVIEWS TABLE - Stores agent ratings and reviews from buyers
-// ============================================================================
+-- ============================================================================
+-- REVIEWS TABLE - Stores agent ratings and reviews from buyers
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "agentId" UUID NOT NULL,
@@ -122,25 +126,41 @@ CREATE TABLE IF NOT EXISTS reviews (
     UNIQUE("agentId", "buyerAddress")
 );
 
-// ============================================================================
-// ROW LEVEL SECURITY - Enable for all tables
-// ============================================================================
+-- ============================================================================
+-- NOTIFICATIONS TABLE - Stores user notifications
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    userAddress VARCHAR(256) NOT NULL,
+    type VARCHAR(64) NOT NULL,
+    title VARCHAR(256) NOT NULL,
+    message TEXT NOT NULL,
+    paymentId VARCHAR(256),
+    isRead BOOLEAN DEFAULT false,
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ============================================================================
+-- ROW LEVEL SECURITY - Enable for all tables
+-- ============================================================================
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
-// Public access policies (for API access)
+-- Public access policies (for API access)
 CREATE POLICY "Enable all access for agents" ON agents FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for services" ON services FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for payments" ON payments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for reviews" ON reviews FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Enable all access for notifications" ON notifications FOR ALL USING (true) WITH CHECK (true);
 
-// ============================================================================
-// INDEXES - For better query performance
-// ============================================================================
+-- ============================================================================
+-- INDEXES - For better query performance
+-- ============================================================================
 
 -- Agents indexes
 CREATE INDEX IF NOT EXISTS idx_agents_owner ON agents("ownerAddress");
@@ -163,3 +183,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 -- Reviews indexes
 CREATE INDEX IF NOT EXISTS idx_reviews_agent ON reviews("agentId");
 CREATE INDEX IF NOT EXISTS idx_reviews_buyer ON reviews("buyerAddress");
+
+-- Notifications indexes
+CREATE INDEX IF NOT EXISTS idx_notifications_userAddress ON notifications(userAddress);
+CREATE INDEX IF NOT EXISTS idx_notifications_paymentId ON notifications(paymentId);

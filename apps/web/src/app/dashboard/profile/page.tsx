@@ -4,30 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStellar } from '@/context/StellarContext';
 
-interface DashboardStats {
-  totalRevenue: number;
-  apiCalls: number;
-  activeEscrows: number;
-}
-
-const formatCurrency = (value: number): string => {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(2)}M`;
-  }
-  if (value >= 1000) {
-    return `$${(value / 1000).toFixed(2)}K`;
-  }
-  return `$${value.toFixed(2)}`;
-};
-
 export default function ProfilePage() {
   const router = useRouter();
   const { address, network, disconnect } = useStellar();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalRevenue: 0,
-    apiCalls: 0,
-    activeEscrows: 0
-  });
   const [displayAgents, setDisplayAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,17 +20,6 @@ export default function ProfilePage() {
 
   const fetchData = async () => {
     try {
-      // Fetch stats
-      const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stellar/stats`);
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats({
-          totalRevenue: parseFloat(statsData.totalVolume || '0'),
-          apiCalls: statsData.totalPayments || 0,
-          activeEscrows: statsData.totalServices || 0
-        });
-      }
-
       // Fetch user's agents
       const agentRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/address/${address}`);
       if (agentRes.ok) {
@@ -297,30 +265,6 @@ export default function ProfilePage() {
           <div className="wallet-info-row">
             <span className="wi-label">Status</span>
             <span className="wi-value green">Ready to transact</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <div className="panel-title">Account Stats</div>
-        </div>
-        <div className="stats-row">
-          <div className="stat-card blue">
-            <div className="stat-label">TOTAL REVENUE</div>
-            <div className="stat-value">{formatCurrency(stats.totalRevenue)}</div>
-          </div>
-          <div className="stat-card purple">
-            <div className="stat-label">API CALLS</div>
-            <div className="stat-value">{stats.apiCalls.toLocaleString()}</div>
-          </div>
-          <div className="stat-card green">
-            <div className="stat-label">AGENTS</div>
-            <div className="stat-value">{displayAgents.length}</div>
-          </div>
-          <div className="stat-card orange">
-            <div className="stat-label">ESCROWS</div>
-            <div className="stat-value">{stats.activeEscrows}</div>
           </div>
         </div>
       </div>

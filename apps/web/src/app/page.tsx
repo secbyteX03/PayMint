@@ -121,7 +121,7 @@ export default function PayMintLanding() {
         <ul className="pm-nav-links">
           <li><a href="#how">How it works</a></li>
           <li><a href="#features">Features</a></li>
-          <li><a href="/playground">Playground</a></li>
+          <li><a href="/docs">API Docs</a></li>
           <li><a href="#protocol">x402</a></li>
         </ul>
 
@@ -350,7 +350,7 @@ export default function PayMintLanding() {
             {walletStatus === "connected" ? "Open Marketplace →" : "Connect Freighter & Start"}
           </button>
           <button className="btn-ghost" onClick={() => router.push('/dashboard?sections=services')}>Explore Services</button>
-          <a href="/playground" className="btn-ghost" style={{ borderColor: 'var(--green)', color: 'var(--green)' }}>Try Demo →</a>
+          <a href="/docs" className="btn-ghost" style={{ borderColor: 'var(--green)', color: 'var(--green)' }}>API Docs →</a>
         </div>
         <p className="cta-note">Stellar Testnet · Freighter Wallet · Soroban Smart Contracts · x402 Protocol · MIT License</p>
       </div>

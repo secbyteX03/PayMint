@@ -112,7 +112,7 @@ export class PaymentService {
     return updated;
   }
 
-  async refundPayment(paymentId: string, reason?: string) {
+  async requestRefund(paymentId: string, reason?: string) {
     const { data: payment, error: fetchError } = await supabase
       .from('payments')
       .select('*')
@@ -123,14 +123,160 @@ export class PaymentService {
       throw new Error('Payment not found');
     }
 
-    if (payment.status !== 'PENDING' && payment.status !== 'ESCROW_CREATED') {
-      throw new Error('Payment already processed');
+    if (payment.status !== 'ESCROW_CREATED') {
+      throw new Error('Only ESCROW_CREATED payments can have refund requested');
     }
 
+    // Set status to REFUND_REQUESTED - waiting for seller approval
+    const { data: updated, error } = await supabase
+      .from('payments')
+      .update({
+        status: 'REFUND_REQUESTED',
+        refundReason: reason,
+      })
+      .eq('id', paymentId)
+      .select('*, services(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated;
+  }
+
+  async approveRefund(paymentId: string) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (fetchError || !payment) {
+      throw new Error('Payment not found');
+    }
+
+    if (payment.status !== 'REFUND_REQUESTED') {
+      throw new Error('No refund request to approve');
+    }
+
+    // Actually refund the payment - update status to REFUNDED
+    // Note: The actual fund transfer should be handled via Stellar transaction
+    // This is done from the frontend after approval
     const { data: updated, error } = await supabase
       .from('payments')
       .update({
         status: 'REFUNDED',
+      })
+      .eq('id', paymentId)
+      .select('*, services(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated;
+  }
+
+  // Get payment details needed for refund transaction
+  async getPaymentForRefund(paymentId: string) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (fetchError || !payment) {
+      throw new Error('Payment not found');
+    }
+
+    return {
+      sellerAddress: payment.sellerAddress,
+      buyerAddress: payment.buyerAddress,
+      amount: payment.amount,
+      currency: payment.currency,
+      status: payment.status,
+    };
+  }
+
+  async rejectRefund(paymentId: string) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (fetchError || !payment) {
+      throw new Error('Payment not found');
+    }
+
+    if (payment.status !== 'REFUND_REQUESTED') {
+      throw new Error('No refund request to reject');
+    }
+
+    // Reject refund - go back to ESCROW_CREATED
+    const { data: updated, error } = await supabase
+      .from('payments')
+      .update({
+        status: 'ESCROW_CREATED',
+      })
+      .eq('id', paymentId)
+      .select('*, services(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated;
+  }
+
+  async openDispute(paymentId: string, reason?: string) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (fetchError || !payment) {
+      throw new Error('Payment not found');
+    }
+
+    // Can open dispute for ESCROW_CREATED or REFUND_REQUESTED
+    if (payment.status !== 'ESCROW_CREATED' && payment.status !== 'REFUND_REQUESTED') {
+      throw new Error('Cannot open dispute for this payment status');
+    }
+
+    // Set status to DISPUTED
+    const { data: updated, error } = await supabase
+      .from('payments')
+      .update({
+        status: 'DISPUTED',
+        refundReason: reason,
+      })
+      .eq('id', paymentId)
+      .select('*, services(*)')
+      .single();
+
+    if (error) throw new Error(error.message);
+    return updated;
+  }
+
+  async resolveDispute(paymentId: string, resolution?: string, refundBuyer: boolean = false) {
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+
+    if (fetchError || !payment) {
+      throw new Error('Payment not found');
+    }
+
+    if (payment.status !== 'DISPUTED') {
+      throw new Error('No disputed payment to resolve');
+    }
+
+    // Resolve the dispute - either refund buyer or keep for seller
+    const newStatus = refundBuyer ? 'REFUNDED' : 'COMPLETED';
+    
+    const { data: updated, error } = await supabase
+      .from('payments')
+      .update({
+        status: newStatus,
+        refundReason: resolution || (refundBuyer ? 'Refund via dispute resolution' : 'Kept via dispute resolution'),
       })
       .eq('id', paymentId)
       .select('*, services(*)')

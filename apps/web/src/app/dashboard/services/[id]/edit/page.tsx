@@ -125,7 +125,7 @@ export default function EditServicePage() {
           responseFormat: serviceData.responseFormat || undefined,
           retryPolicy: serviceData.retryPolicy || undefined,
           schema: serviceData.schema || undefined,
-          usageExamples: serviceData.usageExamples || undefined,
+          usageExamples: serviceData.usageExamples ? serviceData.usageExamples.split('\n').filter(line => line.trim()) : undefined,
         }),
       });
 

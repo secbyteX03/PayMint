@@ -503,7 +503,7 @@ const dashboardStyles = `
 
 .stat-card.blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
 .stat-card.purple::before { background: linear-gradient(90deg, var(--accent2), transparent); }
-.stat-card.green::before { background: linear-gradient(90deg, var(--accent3), transparent); }
+.stat-card.green::before { background: linear-gradient(90deg, #00ff9d, transparent); }
 .stat-card.orange::before { background: linear-gradient(90deg, var(--warn), transparent); }
 
 .stat-label {
@@ -524,7 +524,7 @@ const dashboardStyles = `
 
 .stat-card.blue .stat-value { color: var(--accent); }
 .stat-card.purple .stat-value { color: var(--accent2); }
-.stat-card.green .stat-value { color: var(--accent3); }
+.stat-card.green .stat-value { color: #00ff9d; }
 .stat-card.orange .stat-value { color: var(--warn); }
 
 .stat-delta {
@@ -574,6 +574,9 @@ const dashboardStyles = `
 }
 
 .chart-area svg { width: 100%; height: 100%; }
+.chart-area svg path { transition: all 0.2s ease; cursor: pointer; }
+.chart-area svg path:hover { stroke-width: 4; filter: drop-shadow(0 0 8px currentColor); }
+.chart-area svg:hover path:first-child { stroke: #00ff9d; }
 
 .chart-labels {
   display: flex;
@@ -597,6 +600,8 @@ const dashboardStyles = `
   font-size: 10px;
   color: var(--muted);
 }
+.chart-legend-item:first-child { color: #00ff9d; }
+.chart-legend-item:last-child { color: #ff6b35; }
 
 .chart-legend-color {
   width: 12px;
@@ -678,6 +683,7 @@ const dashboardStyles = `
   font-size: 12px;
 }
 
+.txn-icon.in { background: rgba(0,255,157,0.1); color: #00ff9d; }
 .txn-icon.out { background: rgba(255,107,53,0.1); }
 
 .txn-desc { flex: 1; min-width: 0; }
@@ -685,7 +691,7 @@ const dashboardStyles = `
 .txn-time { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; }
 
 .txn-amount { font-family: var(--mono); font-size: 12px; font-weight: 700; }
-.txn-amount.in { color: var(--accent3); }
+.txn-amount.in { color: #00ff9d; }
 .txn-amount.out { color: var(--warn); }
 
 .txn-hash { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; text-align: right; }
@@ -1315,8 +1321,11 @@ export default function DashboardPage() {
     return Math.round(change * 10) / 10;
   };
 
+  // Tooltip state for chart hover
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; value: number; label: string; isRevenue: boolean } | null>(null);
+
   // Render chart path from data points
-  const renderChartPath = (data: number[], isRevenue: boolean, baseY: number) => {
+  const renderChartPath = (data: number[], isRevenue: boolean, baseY: number, labels: string[]) => {
     if (data.length === 0) return null;
     
     const maxVal = Math.max(...data, 1);
@@ -1328,21 +1337,47 @@ export default function DashboardPage() {
     const points = data.map((val, i) => {
       const x = i * stepX;
       const y = baseY - (val / maxVal) * (height * 0.8);
-      return { x, y: Math.max(y, 5) };
+      return { x, y: Math.max(y, 5), val };
     });
     
     // Create path string
     const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
     const fillPath = linePath + ` L${width} ${height} L0 ${height}Z`;
     
-    const strokeColor = isRevenue ? '#00d2ff' : '#7b6fff';
-    const fillUrl = isRevenue ? 'url(#grad1)' : 'url(#grad2)';
+    const strokeColor = isRevenue ? '#00ff9d' : '#ff6b35';
+    const fillUrl = isRevenue ? 'url(#grad1)' : 'url(#grad3)';
     const strokeWidth = isRevenue ? 2 : 1.5;
     
+    const handleMouseMove = (e: React.MouseEvent<SVGPathElement>) => {
+      const svg = e.currentTarget.closest('svg');
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const idx = Math.round(mouseX / stepX);
+      if (idx >= 0 && idx < data.length) {
+        setTooltip({
+          x: points[idx].x,
+          y: points[idx].y,
+          value: data[idx],
+          label: labels[idx] || `Point ${idx + 1}`,
+          isRevenue
+        });
+      }
+    };
+
     return (
       <>
         <path d={fillPath} fill={fillUrl} />
-        <path d={linePath} fill="none" stroke={strokeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+        <path 
+          d={linePath} 
+          fill="none" 
+          stroke={strokeColor} 
+          strokeWidth={strokeWidth} 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => setTooltip(null)}
+        />
       </>
     );
   };
@@ -1418,7 +1453,7 @@ export default function DashboardPage() {
       {mounted && (
       <>
       <div className="stats-row">
-        <div className="stat-card blue">
+        <div className="stat-card green">
           <div className="stat-label">TOTAL REVENUE</div>
           <div className="stat-value">{formatCurrency(stats.totalRevenue)}</div>
           <div className={`stat-delta ${getPercentageChange(stats.totalRevenue, stats.previousRevenue) >= 0 ? '' : 'neg'}`}>
@@ -1457,26 +1492,34 @@ export default function DashboardPage() {
               <svg viewBox="0 0 520 130" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="grad1" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#00d2ff" stopOpacity="0.25"/>
-                    <stop offset="100%" stopColor="#00d2ff" stopOpacity="0"/>
+                    <stop offset="0%" stopColor="#00ff9d" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="#00ff9d" stopOpacity="0"/>
                   </linearGradient>
                   <linearGradient id="grad2" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#7b6fff" stopOpacity="0.2"/>
-                    <stop offset="100%" stopColor="#7b6fff" stopOpacity="0"/>
+                    <stop offset="0%" stopColor="#ff6b35" stopOpacity="0.2"/>
+                    <stop offset="100%" stopColor="#ff6b35" stopOpacity="0"/>
                   </linearGradient>
                 </defs>
                 <line x1="0" y1="32" x2="520" y2="32" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
                 <line x1="0" y1="65" x2="520" y2="65" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
                 <line x1="0" y1="98" x2="520" y2="98" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
-                {renderChartPath(chartData.revenue, true, 98)}
-                {renderChartPath(chartData.expenses, false, 110)}
+                {renderChartPath(chartData.revenue, true, 98, chartData.labels)}
+                {renderChartPath(chartData.expenses, false, 110, chartData.labels)}
+                {tooltip && (
+                  <g>
+                    <rect x={tooltip.x - 35} y={tooltip.y - 28} width="70" height="24" rx="4" fill="#0d1420" stroke={tooltip.isRevenue ? '#00ff9d' : '#ff6b35'} strokeWidth="1" />
+                    <text x={tooltip.x} y={tooltip.y - 14} textAnchor="middle" fill={tooltip.isRevenue ? '#00ff9d' : '#ff6b35'} fontSize="11" fontFamily="Space Mono" fontWeight="bold">${tooltip.value.toFixed(2)}</text>
+                    <text x={tooltip.x} y={tooltip.y - 4} textAnchor="middle" fill="rgba(232,244,255,0.6)" fontSize="8" fontFamily="Space Mono">{tooltip.label}</text>
+                    <circle cx={tooltip.x} cy={tooltip.y} r="4" fill={tooltip.isRevenue ? '#00ff9d' : '#ff6b35'} />
+                  </g>
+                )}
               </svg>
             ) : (
               <svg viewBox="0 0 520 130" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="grad1" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#00d2ff" stopOpacity="0.25"/>
-                    <stop offset="100%" stopColor="#00d2ff" stopOpacity="0"/>
+                    <stop offset="0%" stopColor="#00ff9d" stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor="#00ff9d" stopOpacity="0"/>
                   </linearGradient>
                   <linearGradient id="grad2" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#7b6fff" stopOpacity="0.2"/>
@@ -1488,8 +1531,8 @@ export default function DashboardPage() {
                 <line x1="0" y1="98" x2="520" y2="98" stroke="rgba(0,210,255,0.07)" strokeWidth="1"/>
                 <path d="M0 98 L26 90 L52 82 L78 75 L104 72 L130 68 L156 58 L182 52 L208 55 L234 45 L260 38 L286 35 L312 28 L338 32 L364 22 L390 18 L416 14 L442 10 L468 12 L494 8 L520 5 L520 130 L0 130Z" fill="url(#grad1)"/>
                 <path d="M0 110 L26 108 L52 105 L78 100 L104 98 L130 95 L156 90 L182 88 L208 92 L234 86 L260 82 L286 80 L312 75 L338 78 L364 70 L390 66 L416 62 L442 58 L468 60 L494 55 L520 50 L520 130 L0 130Z" fill="url(#grad2)"/>
-                <path d="M0 98 L26 90 L52 82 L78 75 L104 72 L130 68 L156 58 L182 52 L208 55 L234 45 L260 38 L286 35 L312 28 L338 32 L364 22 L390 18 L416 14 L442 10 L468 12 L494 8 L520 5" fill="none" stroke="#00d2ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M0 110 L26 108 L52 105 L78 100 L104 98 L130 95 L156 90 L182 88 L208 92 L234 86 L260 82 L286 80 L312 75 L338 78 L364 70 L390 66 L416 62 L442 58 L468 60 L494 55 L520 50" fill="none" stroke="#7b6fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M0 98 L26 90 L52 82 L78 75 L104 72 L130 68 L156 58 L182 52 L208 55 L234 45 L260 38 L286 35 L312 28 L338 32 L364 22 L390 18 L416 14 L442 10 L468 12 L494 8 L520 5" fill="none" stroke="#00ff9d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M0 110 L26 108 L52 105 L78 100 L104 98 L130 95 L156 90 L182 88 L208 92 L234 86 L260 82 L286 80 L312 75 L338 78 L364 70 L390 66 L416 62 L442 58 L468 60 L494 55 L520 50" fill="none" stroke="#ff6b35" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 <text x="4" y="29" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$3k</text>
                 <text x="4" y="62" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$2k</text>
                 <text x="4" y="95" fontSize="9" fill="rgba(232,244,255,0.35)" fontFamily="Space Mono">$1k</text>
@@ -1509,11 +1552,11 @@ export default function DashboardPage() {
           </div>
           <div className="chart-legend">
             <div className="chart-legend-item">
-              <span className="chart-legend-color" style={{ background: 'var(--accent)' }}></span>
+              <span className="chart-legend-color" style={{ background: '#00ff9d' }}></span>
               Revenue
             </div>
             <div className="chart-legend-item">
-              <span className="chart-legend-color" style={{ background: 'var(--accent2)' }}></span>
+              <span className="chart-legend-color" style={{ background: '#ff6b35' }}></span>
               Expenses
             </div>
           </div>
@@ -1535,7 +1578,7 @@ export default function DashboardPage() {
               </div>
               <div className={`status-dot ${agent.status}`}></div>
               <div className="agent-row-stat">
-                <div className="agent-row-val">${agent.revenue ?? 0}</div>
+                <div className="agent-row-val" style={{ color: '#00ff9d' }}>${agent.revenue ?? 0}</div>
                 <div className="agent-row-calls">{(agent.calls ?? 0).toLocaleString()} calls</div>
               </div>
             </div>
@@ -2219,7 +2262,7 @@ export default function DashboardPage() {
           <div className="panel-title">Account Stats</div>
         </div>
         <div className="stats-row">
-          <div className="stat-card blue">
+          <div className="stat-card green">
             <div className="stat-label">TOTAL REVENUE</div>
             <div className="stat-value">{formatCurrency(stats.totalRevenue)}</div>
           </div>
@@ -2245,91 +2288,6 @@ export default function DashboardPage() {
       <style dangerouslySetInnerHTML={{ __html: dashboardStyles }} />
       
       <div className="dashboard-container">
-        {/* TOPBAR */}
-        <div className="dashboard-topbar">
-          <div className="dashboard-logo" onClick={goHome}>
-            <div className="logo-icon">
-              <svg className="logo-hex" viewBox="0 0 14 14" fill="none">
-                <polygon points="7,1 12,3.5 12,10.5 7,13 2,10.5 2,3.5" fill="none" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
-                <polygon points="7,4.5 9.5,5.75 9.5,9.25 7,10.5 4.5,9.25 4.5,5.75" fill="white"/>
-              </svg>
-            </div>
-            PayMint
-          </div>
-          
-          <div className="network-badge">STELLAR {network?.toUpperCase() || 'TESTNET'}</div>
-          <div className="pulse-dot"></div>
-          <span className="live-text">LIVE</span>
-          
-          <div className="topbar-right">
-            {address ? (
-              <span className="wallet-chip">
-                {address.slice(0, 6)}…{address.slice(-4)}
-              </span>
-            ) : (
-              <span className="wallet-chip" onClick={goToConnect} style={{ cursor: 'pointer' }}>
-                Connect Wallet
-              </span>
-            )}
-            <div className="avatar">
-              {address ? address.slice(0, 2).toUpperCase() : '0x'}
-            </div>
-          </div>
-        </div>
-
-        {/* SIDEBAR */}
-        <div className="dashboard-sidebar">
-          <div className="nav-section-label">NAVIGATION</div>
-          <NextLink href="/dashboard" className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}>
-            <Home size={16} className="nav-icon" />
-            Dashboard
-          </NextLink>
-          <NextLink href="/dashboard/agents" className={`nav-item ${activeSection === 'my-agent' ? 'active' : ''}`}>
-            <Bot size={16} className="nav-icon" />
-            My Agents
-          </NextLink>
-          <NextLink href="/dashboard/services" className={`nav-item ${activeSection === 'services' ? 'active' : ''}`}>
-            <ShoppingCart size={16} className="nav-icon" />
-            Services
-            {displayServices.length > 0 && <span className="nav-badge">{displayServices.length}</span>}
-          </NextLink>
-          <NextLink href="/dashboard/payments" className={`nav-item ${activeSection === 'payments' ? 'active' : ''}`}>
-            <CreditCard size={16} className="nav-icon" />
-            Payments
-          </NextLink>
-          <NextLink href="/dashboard/escrow" className={`nav-item ${activeSection === 'escrow' ? 'active' : ''}`}>
-            <ShieldCheck size={16} className="nav-icon" />
-            Escrow
-          </NextLink>
-
-          <div className="nav-section-label">MARKETPLACE</div>
-          <NextLink href="/dashboard/discover" className={`nav-item ${activeSection === 'discover' ? 'active' : ''}`}>
-            <Search size={16} className="nav-icon" />
-            Discover
-          </NextLink>
-          <NextLink href="/dashboard/purchases" className={`nav-item ${activeSection === 'purchases' ? 'active' : ''}`}>
-            <ShoppingCart size={16} className="nav-icon" />
-            Purchases
-          </NextLink>
-          <NextLink href="/dashboard/integrations" className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`}>
-            <ExternalLink size={16} className="nav-icon" />
-            Integrations
-          </NextLink>
-
-          <div className="nav-section-label">ACCOUNT</div>
-          <NextLink href="/dashboard/profile" className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}>
-            <User size={16} className="nav-icon" />
-            Profile
-          </NextLink>
-
-          <div className="sidebar-footer">
-            <NextLink href="/docs" className="nav-item" target="_blank">
-              <Code size={16} className="nav-icon" />
-              API Docs
-            </NextLink>
-          </div>
-        </div>
-
         {/* MAIN CONTENT */}
         <div className="dashboard-main">
           {renderContent()}

@@ -30,6 +30,10 @@ export default function MyAgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+  
   // Agent form data
   const [agentData, setAgentData] = useState({
     name: '',
@@ -235,6 +239,25 @@ export default function MyAgentsPage() {
       </div>
     );
   }
+
+  // Pagination logic
+  const totalAgentPages = Math.ceil(agents.length / ITEMS_PER_PAGE);
+  const paginatedAgents = agents.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const goToNextPage = () => {
+    if (currentPage < totalAgentPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   return (
     <>
@@ -641,7 +664,7 @@ export default function MyAgentsPage() {
         </div>
       ) : (
         <div className="agents-grid">
-          {agents.map((agent) => (
+          {paginatedAgents.map((agent) => (
             <div key={agent.id} className="agent-card">
               <div className="agent-header">
                 <div className="agent-avatar">
@@ -834,6 +857,31 @@ export default function MyAgentsPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {agents.length > ITEMS_PER_PAGE && (
+        <div className="pagination-controls" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '32px', padding: '16px' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={goToPrevPage}
+            disabled={currentPage === 1}
+            style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+          >
+            Previous
+          </button>
+          <span style={{ color: 'var(--muted)', fontSize: '13px', fontFamily: 'var(--mono)' }}>
+            Page {currentPage} of {totalAgentPages}
+          </span>
+          <button
+            className="btn btn-secondary"
+            onClick={goToNextPage}
+            disabled={currentPage === totalAgentPages}
+            style={{ opacity: currentPage === totalAgentPages ? 0.5 : 1, cursor: currentPage === totalAgentPages ? 'not-allowed' : 'pointer' }}
+          >
+            Next
+          </button>
         </div>
       )}
 

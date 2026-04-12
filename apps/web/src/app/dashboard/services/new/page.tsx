@@ -86,6 +86,7 @@ export default function NewServicePage() {
     setServiceSuccess('');
 
     try {
+      console.log('Creating service with data:', serviceData);
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -103,22 +104,26 @@ export default function NewServicePage() {
           responseFormat: serviceData.responseFormat || undefined,
           retryPolicy: serviceData.retryPolicy || undefined,
           schema: serviceData.schema || undefined,
-          usageExamples: serviceData.usageExamples || undefined,
+          usageExamples: serviceData.usageExamples ? serviceData.usageExamples.split('\n').filter(line => line.trim()) : undefined,
         }),
       });
 
+      console.log('Response status:', res.status);
       const data = await res.json();
+      console.log('Response status:', res.status, 'data:', data);
 
-      if (res.ok) {
+      // Success if status is 200-299 and no error field
+      if (res.status >= 200 && res.status < 300 && !data.error) {
         setServiceSuccess('Service created successfully!');
-        // Wait a moment to show the success message before redirecting
         setTimeout(() => {
           router.push('/dashboard/services');
         }, 1500);
       } else {
-        setServiceError(data.error || 'Failed to create service');
+        console.error('Service creation failed:', data);
+        setServiceError(data.error || `Failed to create service (status: ${res.status})`);
       }
     } catch (err: any) {
+      console.error('Service creation error:', err);
       setServiceError(err.message || 'Failed to create service');
     } finally {
       setSavingService(false);

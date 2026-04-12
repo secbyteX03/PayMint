@@ -16,7 +16,8 @@ export class StellarService {
     try {
       const StellarSdk = await import('@stellar/stellar-sdk');
       const server = new StellarSdk.Horizon.Server(HORIZON_TESTNET_URL, { allowHttp: true });
-      const ledger = await server.getLatestLedger();
+      const ledgers = await server.ledgers().order('desc').limit(1).call();
+      const ledger = ledgers.records[0];
       return {
         network: 'testnet',
         horizonUrl: HORIZON_TESTNET_URL,

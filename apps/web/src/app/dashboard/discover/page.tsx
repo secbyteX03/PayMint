@@ -11,7 +11,10 @@ import {
   ShoppingCart,
   CheckCircle,
   Activity,
-  DollarSign
+  DollarSign,
+  MoreVertical,
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 import { useStellar } from '@/context/StellarContext';
 
@@ -30,6 +33,9 @@ export default function DiscoverPage() {
   // Reviews state
   const [selectedAgentForReviews, setSelectedAgentForReviews] = useState<any>(null);
   const [showReviewsModal, setShowReviewsModal] = useState(false);
+  
+  // Menu state for three dots
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [agentReviews, setAgentReviews] = useState<any[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   
@@ -181,6 +187,16 @@ export default function DiscoverPage() {
 
       if (res.ok) {
         const payment = await res.json();
+        
+        // Dispatch notification for escrow creation
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: {
+            message: `Escrow created: ${service.pricePerCall} XLM for ${service.name}`,
+            type: 'success',
+            timestamp: new Date().toISOString()
+          }
+        }));
+
         alert(
           `Escrow created successfully!\n\n` +
           `Escrow ID: ${payment.id}\n` +
@@ -264,6 +280,8 @@ export default function DiscoverPage() {
       <style jsx>{`
         .discover-container {
           width: 100%;
+          max-width: 1400px;
+          margin: 0 auto;
         }
 
         .page-header {
@@ -281,11 +299,11 @@ export default function DiscoverPage() {
         }
 
         .page-title-group h1 {
-          font-size: 28px;
+          font-size: 32px;
           font-weight: 800;
           letter-spacing: -0.5px;
           margin-bottom: 4px;
-          color: var(--text);
+          color: #00d2ff;
         }
 
         .page-subtitle {
@@ -298,18 +316,22 @@ export default function DiscoverPage() {
           align-items: center;
           gap: 8px;
           font-size: 14px;
-          color: var(--text-secondary);
+          color: rgba(232,244,255,0.6);
+          background: rgba(0,210,255,0.1);
+          padding: 8px 16px;
+          border-radius: 20px;
+          border: 1px solid rgba(0,210,255,0.2);
         }
 
         .results-count .count {
-          font-weight: 600;
-          color: var(--accent);
+          font-weight: 700;
+          color: #00d2ff;
         }
 
-        /* Filter Bar */
+        /* Filter Bar - Minimal */
         .filter-bar {
-          background: var(--surface);
-          border: 1px solid var(--border);
+          background: rgba(20, 28, 40, 0.4);
+          border: 1px solid rgba(123, 111, 255, 0.3);
           border-radius: 12px;
           padding: 16px;
           margin-bottom: 24px;
@@ -334,40 +356,40 @@ export default function DiscoverPage() {
           left: 16px;
           top: 50%;
           transform: translateY(-50%);
-          color: var(--text-secondary);
+          color: #00d2ff;
           pointer-events: none;
         }
 
         .search-input {
           width: 100%;
-          padding: 12px 16px 12px 48px;
-          background: var(--surface2);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          color: var(--text);
+          padding: 12px 16px 12px 44px;
+          background: rgba(20, 28, 40, 0.6);
+          border: 1px solid rgba(123, 111, 255, 0.4);
+          border-radius: 8px;
+          color: #e8f4ff;
           font-size: 14px;
           transition: all 0.2s;
         }
 
         .search-input:focus {
           outline: none;
-          border-color: var(--accent);
+          border-color: rgba(123, 111, 255, 0.8);
         }
 
         .search-input::placeholder {
-          color: var(--text-secondary);
+          color: rgba(232,244,255,0.4);
         }
 
         .filter-select {
-          padding: 12px 36px 12px 16px;
-          background: var(--surface2);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          color: var(--text);
+          padding: 12px 36px 12px 14px;
+          background: rgba(20, 28, 40, 0.6);
+          border: 1px solid rgba(123, 111, 255, 0.4);
+          border-radius: 8px;
+          color: #e8f4ff;
           font-size: 14px;
           cursor: pointer;
           appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237b6fff' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
           background-repeat: no-repeat;
           background-position: right 14px center;
           min-width: 140px;
@@ -376,7 +398,20 @@ export default function DiscoverPage() {
 
         .filter-select:focus {
           outline: none;
-          border-color: var(--accent);
+          border-color: rgba(123, 111, 255, 0.8);
+        }
+
+        .filter-select option {
+          background: #141828;
+          color: #e8f4ff;
+          padding: 12px;
+        }
+
+        .filter-select option:hover,
+        .filter-select option:focus,
+        .filter-select option:checked {
+          background: rgba(123, 111, 255, 0.3);
+          color: #fff;
         }
 
         .clear-filters-btn {
@@ -398,59 +433,63 @@ export default function DiscoverPage() {
           color: #ef4444;
         }
 
-        /* Agents Grid */
+        /* Agents Grid - 2x2 Layout */
         .agents-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr) !important;
-          gap: 20px;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 24px;
           width: 100%;
+          max-width: 1200px;
+          margin: 0 auto;
         }
 
-        /* Agent Card - Matching My Agents Page */
+        /* Agent Card - Minimal Clean Style */
         .agent-card {
-          background: var(--surface);
-          border: 1px solid var(--border);
+          background: rgba(20, 28, 40, 0.6);
+          border: 1px solid rgba(123, 111, 255, 0.4);
           border-radius: 16px;
-          padding: 24px;
-          transition: all 0.2s;
-          position: relative;
+          padding: 20px;
+          transition: all 0.2s ease;
           cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          min-height: 280px;
+          height: 100%;
+          box-sizing: border-box;
         }
 
         .agent-card:hover {
-          border-color: var(--border2);
+          border-color: rgba(123, 111, 255, 0.8);
           transform: translateY(-2px);
         }
 
         .agent-header {
           display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          margin-bottom: 16px;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
         }
 
         .agent-avatar {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
           background: linear-gradient(135deg, var(--accent2), var(--accent));
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 20px;
+          font-size: 16px;
           font-weight: 700;
           color: white;
+          flex-shrink: 0;
         }
 
         .agent-status {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 20px;
           font-family: var(--mono);
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 4px;
         }
 
         .status-active {
@@ -464,28 +503,30 @@ export default function DiscoverPage() {
         }
 
         .agent-name {
-          font-size: 18px;
+          font-size: 14px;
           font-weight: 700;
           color: var(--text);
-          margin-bottom: 8px;
+          margin-bottom: 4px;
         }
 
         .agent-description {
-          font-size: 13px;
+          font-size: 12px;
           color: var(--muted);
-          line-height: 1.5;
-          margin-bottom: 20px;
+          line-height: 1.4;
+          margin-bottom: 12px;
+          flex: 1;
+          overflow: hidden;
         }
 
         /* Stats Grid */
         .agent-stats {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-          padding: 16px;
+          gap: 8px;
+          padding: 10px;
           background: var(--surface2);
-          border-radius: 10px;
-          margin-bottom: 20px;
+          border-radius: 6px;
+          margin-bottom: 12px;
         }
 
         .agent-stat {
@@ -493,17 +534,17 @@ export default function DiscoverPage() {
         }
 
         .agent-stat-value {
-          font-size: 18px;
-          font-weight: 800;
+          font-size: 14px;
+          font-weight: 700;
           color: var(--text);
         }
 
         .agent-stat-label {
           font-family: var(--mono);
-          font-size: 9px;
+          font-size: 8px;
           color: var(--muted);
-          letter-spacing: 1px;
-          margin-top: 4px;
+          letter-spacing: 0.5px;
+          margin-top: 2px;
         }
 
         .price-stat {
@@ -533,12 +574,12 @@ export default function DiscoverPage() {
           display: flex;
           align-items: center;
           gap: 6px;
-          padding: 6px 12px;
-          background: rgba(0,210,255,0.1);
-          border: 1px solid var(--accent);
-          border-radius: 8px;
-          font-size: 12px;
-          color: var(--accent);
+          padding: 5px 10px;
+          background: rgba(0, 210, 255, 0.08);
+          border: 1px solid rgba(0, 210, 255, 0.2);
+          border-radius: 6px;
+          font-size: 11px;
+          color: rgba(0, 210, 255, 0.8);
         }
 
         .service-price {
@@ -560,9 +601,16 @@ export default function DiscoverPage() {
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 16px;
-          padding-bottom: 16px;
+          margin-bottom: 12px;
+          padding-bottom: 12px;
           border-bottom: 1px solid var(--border);
+        }
+
+        /* Card Footer */
+        .card-footer {
+          display: flex;
+          gap: 10px;
+          margin-top: auto;
         }
 
         .stars {
@@ -599,20 +647,21 @@ export default function DiscoverPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          padding: 12px 20px;
-          background: var(--accent);
-          color: #080c14;
-          border: none;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 700;
+          gap: 6px;
+          padding: 10px 16px;
+          background: rgba(0, 210, 255, 0.15);
+          color: #00d2ff;
+          border: 1px solid rgba(0, 210, 255, 0.3);
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .btn-buy:hover {
-          background: #33ddff;
+          background: rgba(0, 210, 255, 0.25);
+          border-color: rgba(0, 210, 255, 0.5);
         }
 
         .btn-view {
@@ -620,53 +669,55 @@ export default function DiscoverPage() {
           align-items: center;
           justify-content: center;
           gap: 6px;
-          padding: 12px 20px;
-          background: var(--surface2);
-          color: var(--text);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 600;
+          padding: 10px 16px;
+          background: rgba(255, 255, 255, 0.05);
+          color: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .btn-view:hover {
-          border-color: var(--accent);
-          color: var(--accent);
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.2);
+          color: #fff;
         }
 
         /* Empty State */
         .empty-state {
           text-align: center;
           padding: 80px 20px;
-          background: var(--surface);
-          border: 1px dashed var(--border);
-          border-radius: 16px;
+          background: linear-gradient(180deg, rgba(13,20,32,0.95) 0%, rgba(8,12,20,0.98) 100%);
+          border: 1px dashed rgba(0,210,255,0.3);
+          border-radius: 20px;
         }
 
         .empty-icon {
-          width: 80px;
-          height: 80px;
+          width: 100px;
+          height: 100px;
           margin: 0 auto 24px;
-          background: var(--surface2);
+          background: linear-gradient(135deg, rgba(0,210,255,0.1) 0%, rgba(123,111,255,0.1) 100%);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: var(--text-secondary);
+          border: 1px solid rgba(0,210,255,0.2);
+          color: #00d2ff;
         }
 
         .empty-title {
-          font-size: 20px;
+          font-size: 24px;
           font-weight: 700;
           margin-bottom: 8px;
-          color: var(--text);
+          color: #e8f4ff;
         }
 
         .empty-desc {
           font-size: 14px;
-          color: var(--text-secondary);
+          color: rgba(232,244,255,0.5);
           margin-bottom: 24px;
         }
 
@@ -675,9 +726,9 @@ export default function DiscoverPage() {
           align-items: center;
           gap: 8px;
           padding: 14px 28px;
-          background: var(--accent);
+          background: linear-gradient(135deg, #00d2ff 0%, #7b6fff 100%);
           color: #080c14;
-          border-radius: 10px;
+          border-radius: 12px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s;
@@ -685,12 +736,86 @@ export default function DiscoverPage() {
 
         .empty-action:hover {
           transform: scale(1.02);
+          box-shadow: 0 8px 24px rgba(0,210,255,0.3);
         }
 
-        /* Mobile Responsive */
+        /* Three Dots Menu */
+        .menu-trigger {
+          background: none;
+          border: none;
+          color: var(--text-secondary);
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+
+        .menu-trigger:hover {
+          background: rgba(255,255,255,0.1);
+          color: var(--text);
+        }
+
+        .dropdown-menu {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 8px;
+          min-width: 180px;
+          z-index: 100;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .menu-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 14px;
+          background: none;
+          border: none;
+          border-radius: 8px;
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          width: 100%;
+          text-align: left;
+          transition: all 0.2s;
+        }
+
+        .menu-item:hover {
+          background: rgba(0,210,255,0.1);
+          color: var(--accent);
+        }
+
+        .menu-item.danger {
+          color: #ff6b35;
+        }
+
+        .menu-item.danger:hover {
+          background: rgba(255,107,53,0.1);
+        }
+
+        .menu-divider {
+          height: 1px;
+          background: var(--border);
+          margin: 8px 0;
+        }
+
+        /* Cleaner Card Styles */
+        .clean-agent-card {
+          position: relative;
+        }
+
+        /* Mobile Responsive - Keep 2x2 on all sizes */
         @media (max-width: 900px) {
           .agents-grid {
-            grid-template-columns: 1fr;
+            gap: 16px;
           }
         }
 
@@ -715,8 +840,8 @@ export default function DiscoverPage() {
         <div className="page-header">
           <div className="page-title-row">
             <div className="page-title-group">
-              <h1>Discover</h1>
-              <p className="page-subtitle">Browse and purchase AI agents from the marketplace</p>
+              <h1>Agent Marketplace</h1>
+              <p className="page-subtitle">Discover, compare, and purchase AI agents from top developers worldwide</p>
             </div>
             <div className="results-count">
               <span className="count">{filteredAgents.length}</span>
@@ -795,7 +920,7 @@ export default function DiscoverPage() {
             )}
           </div>
         ) : (
-          <div className="agents-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', width: '100%' }}>
+          <div className="agents-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '32px' }}>
             {filteredAgents.map(agent => {
               const agentServices = getAgentServices(agent.id);
               const price = getAgentPrice(agent.id);
@@ -806,44 +931,29 @@ export default function DiscoverPage() {
                   key={agent.id} 
                   className="agent-card"
                   style={{
-                    background: 'linear-gradient(180deg, rgba(13,20,32,0.98) 0%, rgba(8,12,20,1) 100%)',
-                    border: '1px solid rgba(0,210,255,0.2)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-                    position: 'relative',
-                    minHeight: '300px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    padding: '20px',
-                    boxSizing: 'border-box',
+                    border: '1px solid rgba(123, 111, 255, 0.5)',
+                    borderRadius: '16px',
+                    background: 'rgba(20, 28, 40, 0.6)',
+                    minHeight: '340px',
+                    padding: '24px',
                   }}
                   onClick={() => router.push(`/dashboard/agents/${agent.id}`)}
                 >
-                  {/* Gradient border overlay */}
-                  <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'linear-gradient(135deg, rgba(0,210,255,0.1) 0%, transparent 50%, rgba(123,111,255,0.1) 100%)',
-                    pointerEvents: 'none',
-                  }} />
                   
                   {/* Card Header */}
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px' }}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1 }}>
                       <div style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '12px',
-                        background: 'linear-gradient(135deg, #00d2ff 0%, #7b6fff 100%)',
-                        boxShadow: '0 4px 12px rgba(0,210,255,0.3)',
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '8px',
+                        background: 'rgba(0, 210, 255, 0.15)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '20px',
-                        fontWeight: 700,
-                        color: 'white',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#00d2ff',
                         flexShrink: 0,
                       }}>
                         {agent.name?.charAt(0) || 'A'}
@@ -864,7 +974,7 @@ export default function DiscoverPage() {
                         }}>{serviceCount} service{serviceCount !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative' }}>
                       <span style={{
                         background: agent.status === 'ACTIVE' ? 'rgba(0,255,157,0.12)' : 'rgba(255,107,53,0.12)',
                         border: `1px solid ${agent.status === 'ACTIVE' ? 'rgba(0,255,157,0.3)' : 'rgba(255,107,53,0.3)'}`,
@@ -885,6 +995,99 @@ export default function DiscoverPage() {
                         }} />
                         <span style={{ color: agent.status === 'ACTIVE' ? '#00ff9d' : '#ff6b35' }}>{agent.status || 'ACTIVE'}</span>
                       </span>
+                      {/* Three Dots Menu */}
+                      <div style={{ position: 'relative' }}>
+                        <button 
+                          className="menu-trigger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(openMenuId === agent.id ? null : agent.id);
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            padding: '6px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <MoreVertical size={16} color="rgba(232,244,255,0.6)" />
+                        </button>
+                        {openMenuId === agent.id && (
+                          <div 
+                            className="dropdown-menu"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              position: 'absolute',
+                              top: '100%',
+                              right: 0,
+                              marginTop: '4px',
+                              background: 'linear-gradient(180deg, rgba(13,20,32,0.98) 0%, rgba(8,12,20,1) 100%)',
+                              border: '1px solid rgba(0,210,255,0.3)',
+                              borderRadius: '12px',
+                              padding: '8px',
+                              minWidth: '180px',
+                              zIndex: 100,
+                              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                            }}
+                          >
+                            <button 
+                              className="menu-item"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                router.push(`/dashboard/agents/${agent.id}`);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '12px 14px',
+                                background: 'none',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: '#e8f4ff',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                width: '100%',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <Eye size={14} />
+                              View Details
+                            </button>
+                            <button 
+                              className="menu-item"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                openReviewsModal(agent);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '12px 14px',
+                                background: 'none',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: '#e8f4ff',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                width: '100%',
+                                textAlign: 'left',
+                              }}
+                            >
+                              <MessageSquare size={14} />
+                              Reviews ({agent.ratingcount || 0})
+                            </button>
+                            <div style={{ height: '1px', background: 'rgba(0,210,255,0.2)', margin: '8px 0' }} />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
@@ -904,9 +1107,9 @@ export default function DiscoverPage() {
                       </div>
                       <span style={{ fontSize: '12px', color: 'rgba(232,244,255,0.5)' }}>
                         <span style={{ fontWeight: 600, color: '#fbbf24' }}>{agent.rating || '0.0'}</span>
-                        <span> ({agent.ratingCount || 0})</span>
+                        <span> ({agent.ratingcount || 0})</span>
                       </span>
-                      {(agent.ratingCount || 0) > 0 && (
+                      {(agent.ratingcount || 0) > 0 && (
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1080,7 +1283,7 @@ export default function DiscoverPage() {
                 </div>
                 <span style={{ fontSize: '14px', color: 'rgba(232,244,255,0.5)' }}>
                   <span style={{ fontWeight: 600, color: '#fbbf24' }}>{selectedAgentForReviews.rating || '0.0'}</span>
-                  <span> ({selectedAgentForReviews.ratingCount || 0} reviews)</span>
+                  <span> ({selectedAgentForReviews.ratingcount || 0} reviews)</span>
                 </span>
               </div>
             </div>

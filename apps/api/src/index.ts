@@ -9,6 +9,9 @@ import { agentRoutes } from './routes/agent.routes';
 import { serviceRoutes } from './routes/service.routes';
 import { paymentRoutes } from './routes/payment.routes';
 import { stellarRoutes } from './routes/stellar.routes';
+import { webhookRoutes } from './routes/webhook.routes';
+import { notificationRoutes } from './routes/notification.routes';
+import { webhookService } from './services/webhook.service';
 import { errorHandler } from './middleware/errorHandler';
 import { connectDatabase, supabase } from './config/database';
 
@@ -113,6 +116,8 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/stellar', stellarRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -122,6 +127,9 @@ async function startServer() {
   try {
     // Connect to database
     await connectDatabase();
+
+    // Load webhooks from database into memory
+    await webhookService.loadWebhooksFromDatabase();
 
     app.listen(PORT, () => {
       console.log(`AgentPay API running on port ${PORT}`);

@@ -198,6 +198,15 @@ export default function EscrowPage() {
         body: JSON.stringify({ paymentId, transactionHash: result.hash }),
       });
       
+      // Dispatch notification for successful escrow release
+      window.dispatchEvent(new CustomEvent('add-notification', {
+        detail: {
+          message: `Escrow released: ${payment.amount} XLM to ${payment.recipient?.slice(0, 6)}...${payment.recipient?.slice(-4)}`,
+          type: 'success',
+          timestamp: new Date().toISOString()
+        }
+      }));
+
       if (res.ok) {
         alert(
           `Funds released successfully!\n\n` +
@@ -248,6 +257,11 @@ export default function EscrowPage() {
   };
 
   const handleRefund = async (paymentId: string) => {
+    if (!refundReason.trim()) {
+      alert('Please provide a reason for the refund request');
+      return;
+    }
+    
     setRefunding(paymentId);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/refund`, {
@@ -256,16 +270,32 @@ export default function EscrowPage() {
         body: JSON.stringify({ paymentId, reason: refundReason }),
       });
       
+      const data = await res.json();
+      
       if (res.ok) {
         fetchData();
         setShowRefundConfirm(null);
         setRefundReason('');
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: { 
+            message: 'Refund requested! Waiting for seller to approve.', 
+            type: 'info', 
+            timestamp: new Date().toISOString() 
+          }
+        }));
+        alert(
+          `Refund Request Submitted!\n\n` +
+          `Your request has been sent to the seller.\n` +
+          `They must approve the refund for funds to be returned.\n\n` +
+          `If they reject, you can open a dispute from this page.`
+        );
       } else {
-        const data = await res.json();
         console.error('Failed to refund:', data.error);
+        alert(`Error: ${data.error || 'Failed to request refund'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to refund payment:', err);
+      alert(`Error: ${err.message || 'Failed to request refund'}`);
     } finally {
       setRefunding(null);
     }
@@ -283,6 +313,9 @@ export default function EscrowPage() {
         fetchData();
         setShowDisputeConfirm(null);
         setDisputeReason('');
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: { message: 'Dispute opened', type: 'warning', timestamp: new Date().toISOString() }
+        }));
       } else {
         const data = await res.json();
         console.error('Failed to dispute:', data.error);
@@ -294,6 +327,54 @@ export default function EscrowPage() {
 
   const handleApproveRefund = async (paymentId: string) => {
     try {
+      // First, get the refund details (buyer address and amount)
+      const detailsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/${paymentId}/refund-details`);
+      
+      if (!detailsRes.ok) {
+        throw new Error('Failed to get refund details');
+      }
+      
+      const refundDetails = await detailsRes.json();
+      
+      // Ask seller to confirm they will send funds back to buyer
+      const confirmed = confirm(
+        `Approve refund and return ${refundDetails.amount} XLM to buyer?\n\n` +
+        `This will return funds to: ${refundDetails.buyerAddress.slice(0, 6)}...${refundDetails.buyerAddress.slice(-4)}\n\n` +
+        `You must send the funds via Stellar to complete the refund.`
+      );
+      
+      if (!confirmed) return;
+      
+      // Build and sign refund transaction from seller to buyer
+      const buildRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/stellar/payment/build`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: publicKey,
+            to: refundDetails.buyerAddress,
+            amount: refundDetails.amount.toString(),
+            asset: 'XLM',
+          }),
+        }
+      );
+      
+      if (!buildRes.ok) {
+        const errData = await buildRes.json();
+        throw new Error(errData.error || 'Failed to build refund transaction');
+      }
+      
+      const { transactionXdr } = await buildRes.json();
+      
+      // Sign and submit the transaction using Freighter
+      const result = await signAndSubmitTransaction(transactionXdr);
+      
+      if (!result) {
+        throw new Error('Transaction signing failed or was cancelled');
+      }
+      
+      // Now approve the refund in the database
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/approve-refund`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -302,12 +383,27 @@ export default function EscrowPage() {
       
       if (res.ok) {
         fetchData();
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: { message: 'Refund approved and funds returned to buyer', type: 'success', timestamp: new Date().toISOString() }
+        }));
+        alert(
+          `Refund completed successfully!\n\n` +
+          `Transaction Hash: ${result.hash.slice(0, 12)}...\n` +
+          `Amount: ${refundDetails.amount} XLM\n\n` +
+          `The buyer has received the funds back.`
+        );
       } else {
         const data = await res.json();
-        console.error('Failed to approve refund:', data.error);
+        // Even if API fails, the XLM was sent - just log error
+        console.error('Failed to update payment status:', data.error);
+        alert(
+          `Refund sent but status update failed.\n` +
+          `Hash: ${result.hash}`
+        );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to approve refund:', err);
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -321,6 +417,9 @@ export default function EscrowPage() {
       
       if (res.ok) {
         fetchData();
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: { message: 'Refund rejected', type: 'info', timestamp: new Date().toISOString() }
+        }));
       } else {
         const data = await res.json();
         console.error('Failed to reject refund:', data.error);
@@ -1218,9 +1317,24 @@ export default function EscrowPage() {
                   </div>
                   <div className="escrow-meta">
                     ID: {escrow.id.slice(0, 12)}... • {new Date(escrow.createdAt).toLocaleDateString()}
-                    {escrow.status === 'REFUND_REQUESTED' && escrow.refundReason && (
-                      <div style={{ marginTop: '4px', color: '#ff9500', fontSize: '11px' }}>
-                        Reason: {escrow.refundReason}
+                    {escrow.status === 'REFUND_REQUESTED' && (
+                      <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(255,149,0,0.15)', borderRadius: '6px', border: '1px solid rgba(255,149,0,0.3)' }}>
+                        {escrow.buyerAddress === publicKey ? (
+                          <span style={{ color: '#ff9500', fontSize: '12px' }}>
+                            ⏳ <strong>Waiting for seller approval</strong> - They can approve or reject the refund
+                          </span>
+                        ) : (
+                          <span style={{ color: '#ff9500', fontSize: '12px' }}>
+                            ⚠️ <strong>Buyer has requested a refund</strong> - Please review and approve or reject
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {escrow.status === 'DISPUTED' && (
+                      <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(255,0,255,0.15)', borderRadius: '6px', border: '1px solid rgba(255,0,255,0.3)' }}>
+                        <span style={{ color: '#ff00ff', fontSize: '12px' }}>
+                          ⚠️ <strong>Under Dispute</strong> - Our support team will review the case
+                        </span>
                       </div>
                     )}
                   </div>

@@ -26,7 +26,11 @@ export default function ServicesPage() {
   const [showEditService, setShowEditService] = useState<any | null>(null);
   const [showDeleteService, setShowDeleteService] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 2;
+
   // Service form state
   const [serviceData, setServiceData] = useState({
     name: '',
@@ -287,9 +291,36 @@ export default function ServicesPage() {
     );
   }
 
+  // Pagination logic
+  const totalServicePages = Math.ceil(filteredServices.length / ITEMS_PER_PAGE);
+  const paginatedServices = filteredServices.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const goToNextPage = () => {
+    if (currentPage < totalServicePages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
   return (
-    <>
+    <div className="page-content">
       <style jsx>{`
+        .page-content {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+        }
+
         .page-header {
           display: flex;
           align-items: flex-start;
@@ -394,9 +425,7 @@ export default function ServicesPage() {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 16px;
-          overflow: hidden;
-          max-height: 600px;
-          overflow-y: auto;
+          min-height: 450px;
         }
 
         table {
@@ -787,7 +816,7 @@ export default function ServicesPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredServices.map(service => (
+              {paginatedServices.map(service => (
                 <tr key={service.id}>
                   <td>
                     <div className="service-name-cell">
@@ -877,6 +906,31 @@ export default function ServicesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredServices.length > 0 && (
+        <div className="pagination-controls" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '24px', padding: '16px' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={goToPrevPage}
+            disabled={currentPage === 1}
+            style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+          >
+            Previous
+          </button>
+          <span style={{ color: 'var(--muted)', fontSize: '13px', fontFamily: 'var(--mono)' }}>
+            Page {currentPage} of {totalServicePages}
+          </span>
+          <button
+            className="btn btn-secondary"
+            onClick={goToNextPage}
+            disabled={currentPage === totalServicePages}
+            style={{ opacity: currentPage === totalServicePages ? 0.5 : 1, cursor: currentPage === totalServicePages ? 'not-allowed' : 'pointer' }}
+          >
+            Next
+          </button>
         </div>
       )}
 
@@ -1151,6 +1205,6 @@ export default function ServicesPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

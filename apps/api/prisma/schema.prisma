@@ -112,3 +112,34 @@ model Transaction {
   status     String   @default("PENDING") // PENDING, COMPLETED, FAILED
   createdAt  DateTime @default(now())
 }
+
+// ============================================================================
+// REVIEW MODEL - Agent ratings and reviews from buyers
+// ============================================================================
+model Review {
+  id           String   @id @default(uuid())
+  agentId      String   // Reference to agent
+  buyerAddress String   // Buyer wallet address
+  rating      Int      // 1-5 rating
+  comment     String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  
+  // Unique constraint: one review per buyer per agent
+  @@unique([agentId, buyerAddress])
+}
+
+// ============================================================================
+// NOTIFICATION MODEL - User notifications
+// ============================================================================
+model Notification {
+  id           String   @id @default(uuid())
+  userAddress  String   // User wallet address
+  type        String   // Notification type
+  title       String   // Notification title
+  message     String   // Notification message
+  paymentId   String?  // Related payment ID
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}

@@ -740,7 +740,7 @@ export default function IntegrationsPage() {
               Don't see your stack?
             </h2>
             <p style={{ fontSize: 13, color: 'rgba(221,238,255,0.44)', lineHeight: 1.7, maxWidth: 460 }}>
-              We ship new integrations every sprint. Tell us what your agents need — wallet provider, model API, data oracle, or monitoring tool — and we'll prioritize it.
+              We ship new integrations every sprint. Tell us what your agents need from wallet provider, model API, data oracle, or monitoring tool, and we'll prioritize it.
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 210 }}>

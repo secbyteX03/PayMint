@@ -24,7 +24,12 @@ export default function PaymentsPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
-  
+  const [viewMode, setViewMode] = useState<'all' | 'revenue' | 'expenses'>('all');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
   // Review state
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showViewRatingsModal, setShowViewRatingsModal] = useState(false);
@@ -204,9 +209,31 @@ export default function PaymentsPage() {
 
   // Filter payments
   const filteredPayments = userPayments.filter(p => {
-    if (filterStatus === 'all') return true;
-    return p.status === filterStatus;
+    // First filter by view mode (revenue/expenses/all)
+    if (viewMode === 'revenue') {
+      // Revenue = user is the seller (they earned money)
+      if (p.sellerAddress?.toLowerCase() !== publicKey?.toLowerCase()) return false;
+    } else if (viewMode === 'expenses') {
+      // Expenses = user is the buyer (they spent money)
+      if (p.buyerAddress?.toLowerCase() !== publicKey?.toLowerCase()) return false;
+    }
+    
+    // Then filter by status
+    if (filterStatus !== 'all' && p.status !== filterStatus) return false;
+    return true;
   });
+  
+  // Reset to page 1 when filter or viewMode changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, viewMode]);
+  
+  // Paginate payments
+  const paginatedPayments = filteredPayments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  const totalPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -217,6 +244,8 @@ export default function PaymentsPage() {
         return <Clock size={16} color="var(--accent3)" />;
       case 'REFUNDED':
         return <RefreshCw size={16} color="var(--warn)" />;
+      case 'REFUND_REQUESTED':
+        return <AlertCircle size={16} color="#ff9500" />;
       default:
         return <AlertCircle size={16} color="var(--muted)" />;
     }
@@ -261,8 +290,15 @@ export default function PaymentsPage() {
   }
 
   return (
-    <>
+    <div className="page-content">
       <style jsx>{`
+        .page-content {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
         .page-header {
           display: flex;
           align-items: flex-start;
@@ -356,6 +392,10 @@ export default function PaymentsPage() {
           color: var(--accent3);
         }
 
+        .stat-value.negative {
+          color: #ff6b35;
+        }
+
         /* Filters */
         .filters-row {
           display: flex;
@@ -392,9 +432,7 @@ export default function PaymentsPage() {
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 16px;
-          overflow: hidden;
-          max-height: 600px;
-          overflow-y: auto;
+          overflow: auto;
         }
 
         table {
@@ -454,7 +492,7 @@ export default function PaymentsPage() {
         }
 
         .amount-cell.spent {
-          color: var(--warn);
+          color: #ff6b35;
         }
 
         .status-badge {
@@ -481,6 +519,11 @@ export default function PaymentsPage() {
         .status-refunded {
           background: rgba(255,107,53,0.15);
           color: var(--warn);
+        }
+
+        .status-refund_requested {
+          background: rgba(255,149,0,0.15);
+          color: #ff9500;
         }
 
         .hash-cell {
@@ -559,36 +602,68 @@ export default function PaymentsPage() {
           </div>
           <div className="stat-content">
             <div className="stat-label">TOTAL SPENT</div>
-            <div className="stat-value">${totalSpent.toFixed(2)}</div>
+            <div className="stat-value negative">${totalSpent.toFixed(2)}</div>
           </div>
         </div>
       </div>
 
       <div className="filters-row">
-        <button 
-          className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
-          onClick={() => setFilterStatus('all')}
-        >
-          All
-        </button>
-        <button 
-          className={`filter-btn ${filterStatus === 'COMPLETED' ? 'active' : ''}`}
-          onClick={() => setFilterStatus('COMPLETED')}
-        >
-          Completed
-        </button>
-        <button 
-          className={`filter-btn ${filterStatus === 'PENDING' ? 'active' : ''}`}
-          onClick={() => setFilterStatus('PENDING')}
-        >
-          Pending
-        </button>
-        <button 
-          className={`filter-btn ${filterStatus === 'REFUNDED' ? 'active' : ''}`}
-          onClick={() => setFilterStatus('REFUNDED')}
-        >
-          Refunded
-        </button>
+        <div style={{ display: 'flex', gap: '4px', background: 'var(--surface2)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+          <button 
+            className={`filter-btn ${viewMode === 'all' ? 'active' : ''}`}
+            onClick={() => setViewMode('all')}
+            style={{ background: viewMode === 'all' ? 'var(--accent)' : 'transparent', color: viewMode === 'all' ? '#080c14' : 'var(--muted)', border: 'none' }}
+          >
+            All
+          </button>
+          <button 
+            className={`filter-btn ${viewMode === 'revenue' ? 'active' : ''}`}
+            onClick={() => setViewMode('revenue')}
+            style={{ background: viewMode === 'revenue' ? '#00ff9d' : 'transparent', color: viewMode === 'revenue' ? '#080c14' : 'var(--muted)', border: 'none' }}
+          >
+            Revenue
+          </button>
+          <button 
+            className={`filter-btn ${viewMode === 'expenses' ? 'active' : ''}`}
+            onClick={() => setViewMode('expenses')}
+            style={{ background: viewMode === 'expenses' ? '#ff6b35' : 'transparent', color: viewMode === 'expenses' ? '#080c14' : 'var(--muted)', border: 'none' }}
+          >
+            Expenses
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto', background: 'var(--surface2)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+          <button 
+            className={`filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
+            onClick={() => setFilterStatus('all')}
+          >
+            All
+          </button>
+          <button 
+            className={`filter-btn ${filterStatus === 'COMPLETED' ? 'active' : ''}`}
+            onClick={() => setFilterStatus('COMPLETED')}
+          >
+            Completed
+          </button>
+          <button 
+            className={`filter-btn ${filterStatus === 'PENDING' ? 'active' : ''}`}
+            onClick={() => setFilterStatus('PENDING')}
+          >
+            Pending
+          </button>
+          <button 
+            className={`filter-btn ${filterStatus === 'REFUNDED' ? 'active' : ''}`}
+            onClick={() => setFilterStatus('REFUNDED')}
+          >
+            Refunded
+          </button>
+          <button 
+            className={`filter-btn ${filterStatus === 'REFUND_REQUESTED' ? 'active' : ''}`}
+            onClick={() => setFilterStatus('REFUND_REQUESTED')}
+          >
+            Refund Requested
+          </button>
+        </div>
       </div>
 
       {filteredPayments.length === 0 ? (
@@ -617,7 +692,7 @@ export default function PaymentsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredPayments.map(payment => (
+              {paginatedPayments.map(payment => (
                 <tr key={payment.id}>
                   <td>
                     <div className="service-cell">
@@ -626,8 +701,9 @@ export default function PaymentsPage() {
                     </div>
                   </td>
                   <td>
-                    <span className={`amount-cell ${payment.status === 'COMPLETED' ? 'earned' : ''}`}>
+                    <span className={`amount-cell ${payment.sellerAddress?.toLowerCase() === publicKey?.toLowerCase() ? 'earned' : 'spent'}`}>
                       ${parseFloat(payment.amount || 0).toFixed(2)}
+                      {payment.sellerAddress?.toLowerCase() === publicKey?.toLowerCase() ? ' ↑' : ' ↓'}
                     </span>
                   </td>
                   <td>
@@ -705,6 +781,54 @@ export default function PaymentsPage() {
               ))}
             </tbody>
           </table>
+          
+          {/* Pagination Controls */}
+          {filteredPayments.length > 0 && (
+            <div className="pagination-controls" style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '12px',
+            marginTop: '20px',
+            padding: '16px'
+          }}>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: '1px solid var(--border)',
+                background: currentPage === 1 ? 'var(--surface2)' : 'var(--surface)',
+                color: currentPage === 1 ? 'var(--muted)' : 'var(--text)',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}
+            >
+              ← Previous
+            </button>
+            <span style={{ color: 'var(--muted)', fontSize: '12px' }}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: '1px solid var(--border)',
+                background: currentPage === totalPages ? 'var(--surface2)' : 'var(--surface)',
+                color: currentPage === totalPages ? 'var(--muted)' : 'var(--text)',
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}
+            >
+              Next →
+            </button>
+          </div>
+          )}
         </div>
       )}
 
@@ -872,7 +996,7 @@ export default function PaymentsPage() {
                 </div>
                 <span style={{ fontSize: '14px', color: 'var(--muted)' }}>
                   <span style={{ fontWeight: 600, color: '#fbbf24' }}>{viewingRatingsAgent.rating || '0.0'}</span>
-                  <span> ({viewingRatingsAgent.ratingCount || 0} reviews)</span>
+                  <span> ({viewingRatingsAgent.ratingcount || 0} reviews)</span>
                 </span>
               </div>
             </div>
@@ -937,6 +1061,6 @@ export default function PaymentsPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

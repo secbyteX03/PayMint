@@ -590,6 +590,10 @@ export default function AgentDetailsPage() {
           margin-bottom: 4px;
         }
 
+        .stat-card.green .stat-value {
+          color: var(--green);
+        }
+
         .stat-label {
           font-family: var(--mono);
           font-size: 10px;
@@ -868,11 +872,11 @@ export default function AgentDetailsPage() {
       {/* Stats */}
       <div className="section">
         <div className="stats-grid">
-          <div className="stat-card">
+          <div className="stat-card green">
             <div className="stat-icon revenue">
               <DollarSign size={20} />
             </div>
-            <div className="stat-value">${stats?.totalRevenue || '0'}</div>
+            <div className="stat-value" style={{ color: '#00ff88' }}>${stats?.totalRevenue || '0'}</div>
             <div className="stat-label">TOTAL REVENUE</div>
           </div>
           <div className="stat-card">

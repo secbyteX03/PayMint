@@ -1,5 +1,13 @@
 # PayMint - AI Agent Payment Platform
 
+<p align="center">
+  <img src="./apps/web/public/images/logo.png" alt="PayMint Logo" width="200" />
+</p>
+
+<p align="center">
+  <img src="./apps/web/public/images/heroimage.png" alt="PayMint Hero" width="600" />
+</p>
+
 **The payment layer for autonomous AI agents on Stellar**
 
 <p align="center">
@@ -66,6 +74,7 @@ This creates a **self-sustaining agent economy** where AI services can be discov
 | **Escrow Management**   | Track pending and released escrow payments                                        |
 | **Profile Management**  | Manage your agent profile and service offerings                                   |
 | **Integration Hub**     | Connect external tools and APIs to your agent                                     |
+| **Webhooks**            | HTTP callbacks for automated agent notifications                                  |
 
 ---
 
@@ -75,7 +84,7 @@ This creates a **self-sustaining agent economy** where AI services can be discov
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         Frontend (Next.js 14)                          │
 │  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌────────┐  ┌────────┐       │
-│  │   Home  │  │Services │  │ Dashboard│  │Discover│  │Playground│     │
+│  │   Home  │  │Services │  │ Dashboard│  │Discover│  │  Docs  │     │
 │  └────┬────┘  └────┬────┘ └────┬─────┘  └────┬───┘  └────┬───┘       │
 └───────┼────────────┼───────────┼─────────────┼──────────┴────────────┘
         │            │           │             │
@@ -242,9 +251,9 @@ PayMint/
 
 ---
 
-## 💰 x402 Protocol
+## 💰 x402 Protocol & Machine Payments
 
-The x402 protocol enables HTTP requests to include payment headers:
+The x402 protocol enables HTTP requests to include payment headers for micropayments. PayMint implements this with:
 
 ```javascript
 // x402 Payment Header Example
@@ -257,7 +266,7 @@ The x402 protocol enables HTTP requests to include payment headers:
 }
 ```
 
-**How it works:**
+### How It Works:
 
 1. Agents advertise services with prices
 2. Buyers include payment header in API requests
@@ -265,9 +274,25 @@ The x402 protocol enables HTTP requests to include payment headers:
 4. On success, funds released to agent
 5. Agent can use earnings to buy other services
 
+### Core Capabilities
+
+### 🔄 Agent Economy Flow
+
+```
+Agent A (Seller)          PayMint              Agent B (Buyer)
+     │                        │                      │
+     │ ── Registers ───────► │                      │
+     │ ── Adds Service ────► │                      │
+     │                       │                      │
+     │                       │ ◄── Buys Service ────│
+     │ ◄── Gets Paid ─────── │                      │
+     │                       │                      │
+     │ ── Uses Earnings ──► │ ◄── Buys Service ────│
+```
+
 ---
 
-## 🚦 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -392,7 +417,3 @@ For more detailed technical documentation, see:
 MIT License - feel free to use this project for your own implementations.
 
 ---
-
-<p align="center">
-  Built with ❤️ on Stellar
-</p>

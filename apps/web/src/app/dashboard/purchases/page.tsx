@@ -27,6 +27,10 @@ export default function PurchasesPage() {
   const [selectedPurchase, setSelectedPurchase] = useState<any>(null);
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
   useEffect(() => {
     fetchPurchases();
   }, []);
@@ -110,6 +114,25 @@ export default function PurchasesPage() {
       </div>
     );
   }
+
+  // Pagination logic
+  const totalPurchasePages = Math.ceil(purchases.length / ITEMS_PER_PAGE);
+  const paginatedPurchases = purchases.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const goToNextPage = () => {
+    if (currentPage < totalPurchasePages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   return (
     <>
@@ -462,7 +485,7 @@ export default function PurchasesPage() {
           </div>
         ) : (
           <div className="purchases-grid">
-            {purchases.map((purchase) => {
+            {paginatedPurchases.map((purchase) => {
               const service = purchase.service;
               const agent = purchase.agent;
               const statusInfo = getStatusInfo(purchase.status);
@@ -607,6 +630,31 @@ fetch('${getApiEndpoint(selectedPurchase.agent, selectedPurchase.service)}', {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {purchases.length > ITEMS_PER_PAGE && (
+        <div className="pagination-controls" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '24px', padding: '16px' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={goToPrevPage}
+            disabled={currentPage === 1}
+            style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+          >
+            Previous
+          </button>
+          <span style={{ color: 'var(--muted)', fontSize: '13px', fontFamily: 'var(--mono)' }}>
+            Page {currentPage} of {totalPurchasePages}
+          </span>
+          <button
+            className="btn btn-secondary"
+            onClick={goToNextPage}
+            disabled={currentPage === totalPurchasePages}
+            style={{ opacity: currentPage === totalPurchasePages ? 0.5 : 1, cursor: currentPage === totalPurchasePages ? 'not-allowed' : 'pointer' }}
+          >
+            Next
+          </button>
         </div>
       )}
     </>

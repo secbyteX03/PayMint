@@ -26,7 +26,12 @@ import {
   CheckCircle,
   X,
   Menu,
-  Package
+  Package,
+  Bell,
+  BellOff,
+  AlertCircle,
+  RefreshCw,
+  XCircle
 } from 'lucide-react';
 import { useStellar } from '@/context/StellarContext';
 
@@ -42,15 +47,32 @@ export default function DashboardLayout({ children }: LayoutProps) {
   const [agents, setAgents] = useState<any[]>([]);
   const [currentAgent, setCurrentAgent] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Listen for notification events from other components
+  useEffect(() => {
+    const handleNotification = (e: CustomEvent) => {
+      const newNotif = e.detail;
+      setNotifications(prev => [newNotif, ...prev].slice(0, 20));
+    };
+    
+    window.addEventListener('add-notification', handleNotification as EventListener);
+    return () => {
+      window.removeEventListener('add-notification', handleNotification as EventListener);
+    };
+  }, []);
+
   useEffect(() => {
     if (isConnected && address) {
       fetchUserAgents();
+      fetchNotifications();
     }
   }, [isConnected, address]);
 
@@ -72,6 +94,20 @@ export default function DashboardLayout({ children }: LayoutProps) {
     }
   };
 
+  const fetchNotifications = async () => {
+    if (!address) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/address/${address}`);
+      if (res.ok) {
+        const notifs = await res.json();
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n: any) => !n.isRead).length);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  };
+
   const navItems = [
     { section: 'NAVIGATION', icon: null, label: '', href: '' },
     { icon: Home, label: 'Dashboard', href: '/dashboard' },
@@ -83,6 +119,8 @@ export default function DashboardLayout({ children }: LayoutProps) {
     { icon: ShoppingCart, label: 'Discover', href: '/dashboard/discover' },
     { icon: Package, label: 'Purchases', href: '/dashboard/purchases' },
     { icon: Link, label: 'Integrations', href: '/dashboard/integrations' },
+    { section: 'DOCS', icon: null, label: '', href: '' },
+    { icon: Activity, label: 'API Docs', href: '/dashboard/api-docs' },
     { section: 'ACCOUNT', icon: null, label: '', href: '' },
     { icon: User, label: 'Profile', href: '/dashboard/profile' },
   ];
@@ -269,6 +307,117 @@ export default function DashboardLayout({ children }: LayoutProps) {
           color: var(--text);
         }
 
+        .notification-wrapper {
+          position: relative;
+        }
+
+        .notification-bell {
+          background: transparent;
+          border: none;
+          color: var(--muted);
+          cursor: pointer;
+          padding: 6px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          transition: all 0.2s;
+        }
+
+        .notification-bell:hover,
+        .notification-bell.has-notifications {
+          color: var(--accent);
+          background: var(--surface2);
+        }
+
+        .notification-badge {
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          background: #ef4444;
+          color: white;
+          font-size: 9px;
+          font-weight: 700;
+          min-width: 16px;
+          height: 16px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 4px;
+        }
+
+        .notification-dropdown {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          margin-top: 8px;
+          width: 280px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+          z-index: 100;
+          overflow: hidden;
+        }
+
+        .notification-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--border);
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .clear-notifications {
+          background: transparent;
+          border: none;
+          color: var(--accent);
+          font-size: 11px;
+          cursor: pointer;
+          padding: 0;
+        }
+
+        .clear-notifications:hover {
+          text-decoration: underline;
+        }
+
+        .notification-empty {
+          padding: 24px;
+          text-align: center;
+          color: var(--muted);
+          font-size: 12px;
+        }
+
+        .notification-list {
+          max-height: 200px;
+          overflow-y: auto;
+        }
+
+        .notification-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 12px 14px;
+          border-bottom: 1px solid var(--border);
+          font-size: 12px;
+          color: var(--text);
+        }
+
+        .notification-item:last-child {
+          border-bottom: none;
+        }
+
+        .notification-item svg {
+          color: var(--accent);
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+
         .avatar {
           width: 30px;
           height: 30px;
@@ -291,7 +440,23 @@ export default function DashboardLayout({ children }: LayoutProps) {
           display: flex;
           flex-direction: column;
           gap: 4px;
-          overflow-y: auto;
+          position: fixed;
+          left: 0;
+          top: 56px;
+          bottom: 0;
+          width: 220px;
+          overflow-y: hidden;
+          z-index: 50;
+          transition: left 0.3s ease;
+        }
+
+        .dashboard-sidebar.collapsed {
+          width: 64px;
+        }
+
+        .dashboard-main.collapsed {
+          left: 64px;
+          margin-left: 0;
         }
 
         .nav-item {
@@ -462,11 +627,18 @@ export default function DashboardLayout({ children }: LayoutProps) {
         }
 
         .dashboard-main {
+          position: fixed;
+          top: 56px;
+          right: 0;
+          bottom: 0;
+          left: 220px;
           overflow-y: auto;
+          overflow-x: hidden;
           padding: 24px;
           display: flex;
           flex-direction: column;
           gap: 20px;
+          z-index: 1;
         }
 
         .btn {
@@ -881,6 +1053,57 @@ export default function DashboardLayout({ children }: LayoutProps) {
           <span className="pulse-dot"></span>
           
           <div className="topbar-right">
+            <div className="notification-wrapper">
+              <button 
+                className={`notification-bell ${unreadCount > 0 ? 'has-notifications' : ''}`}
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                {unreadCount > 0 ? <Bell size={18} /> : <BellOff size={18} />}
+                {unreadCount > 0 && (
+                  <span className="notification-badge">{unreadCount}</span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="notification-dropdown">
+                  <div className="notification-header">
+                    <span>Notifications</span>
+                    {notifications.length > 0 && (
+                      <button 
+                        className="clear-notifications"
+                        onClick={() => setNotifications([])}
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="notification-empty">
+                      No new notifications
+                    </div>
+                  ) : (
+                    <div className="notification-list">
+                      {notifications.slice(0, 5).map((notif: any, idx) => (
+                        <div key={idx} className="notification-item" style={{ opacity: notif.isRead ? 0.6 : 1 }}>
+                          {notif.type === 'REFUND_REQUESTED' && <RefreshCw size={14} style={{ color: '#ff9500' }} />}
+                          {notif.type === 'REFUND_APPROVED' && <CheckCircle size={14} style={{ color: '#00ff9d' }} />}
+                          {notif.type === 'REFUND_REJECTED' && <XCircle size={14} style={{ color: '#ff6b6b' }} />}
+                          {notif.type === 'DISPUTE_OPENED' && <AlertCircle size={14} style={{ color: '#ff00ff' }} />}
+                          {notif.type === 'DISPUTE_RESOLVED' && <CheckCircle size={14} style={{ color: '#00d2ff' }} />}
+                          {(notif.type === 'PAYMENT_CREATED' || !notif.type) && <DollarSign size={14} style={{ color: '#00d2ff' }} />}
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '2px' }}>{notif.title}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{notif.message}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>
+                              {new Date(notif.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {loading ? (
               <span className="wallet-chip">Checking...</span>
             ) : isConnected ? (
@@ -897,7 +1120,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
         </header>
 
         {/* Sidebar */}
-        <nav className="dashboard-sidebar">
+        <nav className={`dashboard-sidebar ${!sidebarOpen ? 'collapsed' : ''}`}>
           {navItems.map((item, index) => (
             item.section ? (
               <div key={item.section} className="nav-section-label">{item.section}</div>
@@ -913,28 +1136,15 @@ export default function DashboardLayout({ children }: LayoutProps) {
             )
           ))}
           
-          {currentAgent && sidebarOpen && (
+
+        {sidebarOpen && (
             <div className="sidebar-footer">
-              <div 
-                className="current-agent"
-                onClick={() => router.push(`/dashboard/agents/${currentAgent.id}`)}
-              >
-                <div className="agent-avatar">
-                  {currentAgent.name?.charAt(0) || 'A'}
-                </div>
-                <div className="agent-info">
-                  <div className="agent-name">{currentAgent.name}</div>
-                  <div className="agent-status">
-                    {currentAgent.status === 'ACTIVE' ? '● Active' : '○ Inactive'}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </nav>
 
         {/* Main Content */}
-        <main className="dashboard-main">
+        <main className={`dashboard-main ${!sidebarOpen ? 'collapsed' : ''}`}>
           {children}
         </main>
       </div>

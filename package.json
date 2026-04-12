@@ -20,7 +20,7 @@
     "contract:build": "cd contracts/agent_registry && cargo build --release",
     "contract:deploy": "cd contracts/agent_registry && cargo run -- deploy",
     "lint": "npm run lint --workspaces",
-    "clean": "rm -rf node_modules apps/*/node_modules apps/*/.next packages/*/node_modules"
+    "clean": "node -e \"const fs=require('fs');['apps/web/.next','apps/api/.next'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true})}catch(e){}})\""
   },
   "devDependencies": {
     "typescript": "^5.3.3"

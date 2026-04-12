@@ -184,7 +184,7 @@ export default function Register() {
         <li><a href="/">Home</a></li>
         <li><a href="/services">Services</a></li>
         <li><a href="/dashboard">Dashboard</a></li>
-        <li><a href="/playground">Playground</a></li>
+        <li><a href="/docs">Docs</a></li>
       </ul>
       <div className="pm-nav-right">
         {isConnected && network && <span className="network-badge">{network}</span>}
