@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build:web",
-  "outputDirectory": "apps/web/.next",
-  "framework": "nextjs"
+  "buildCommand": "cd apps/api && npm run build",
+  "outputDirectory": "apps/api/dist",
+  "framework": null
 }
