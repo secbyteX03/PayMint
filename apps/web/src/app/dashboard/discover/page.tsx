@@ -88,7 +88,7 @@ export default function DiscoverPage() {
   // Get service types for an agent
   const getAgentServiceTypes = (agentId: string) => {
     const agentServices = getAgentServices(agentId);
-    return [...new Set(agentServices.map(s => s.serviceType).filter(Boolean))];
+    return Array.from(new Set(agentServices.map((s: any) => s.serviceType).filter(Boolean)));
   };
 
   // Filter agents with working logic
