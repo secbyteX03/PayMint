@@ -562,7 +562,7 @@ The Soroban smart contract provides:
 
 3. **Set up database:**
 
-   See [SUPABASE_SETUP.md](../SUPABASE_SETUP.md) for detailed instructions.
+   See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for detailed instructions.
 
 4. **Configure environment:**
 
@@ -649,7 +649,7 @@ The Soroban smart contract provides:
 ## Related Documentation
 
 - [Main README](../README.md) - Project overview and quick start
-- [SUPABASE_SETUP.md](../SUPABASE_SETUP.md) - Database setup guide
+- [SUPABASE_SETUP.md](SUPABASE_SETUP.md) - Database setup guide
 
 ---
 

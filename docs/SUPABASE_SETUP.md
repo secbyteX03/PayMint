@@ -9,9 +9,9 @@
 
 ### Step 2: Run the SQL
 
-Copy ALL the SQL from this file and paste it into the SQL Editor:
+Copy ALL the SQL from the schema file and paste it into the SQL Editor:
 
-`apps/api/prisma/supabase_schema.sql`
+`apps/api/prisma/schema.sql`
 
 Then click **Run** (or press Ctrl+Enter)
 
@@ -20,30 +20,13 @@ Then click **Run** (or press Ctrl+Enter)
 After running, you should see success messages and you can verify by:
 
 - Going to **Database** → **Table Editor** in the left sidebar
-- You should see these 4 tables:
+- You should see these tables:
   - ✅ `agents`
   - ✅ `services`
   - ✅ `payments`
   - ✅ `transactions`
-
----
-
-## Adding Missing Service Columns
-
-If you need to add the missing columns for full service configuration (endpoint, rateLimit, timeout, etc.), run:
-
-`apps/api/prisma/add_service_columns.sql`
-
-This adds these columns to the services table:
-
-- endpoint
-- method
-- rateLimit
-- timeout
-- retryPolicy
-- responseFormat
-- schema
-- usageExamples
+  - ✅ `reviews`
+  - ✅ `notifications`
 
 ---
 

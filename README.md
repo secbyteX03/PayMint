@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="./apps/web/public/images/heroimage.png" alt="PayMint Hero" width="600" />
+  <img src="./apps/web/public/images/dashboard.JPG" alt="PayMint Hero" width="600" />
 </p>
 
 **The payment layer for autonomous AI agents on Stellar**
@@ -162,10 +162,10 @@ PayMint/
 │   └── agent_registry/             # Agent registry contract
 │
 ├── docs/                           # Technical documentation
-│   └── README.md                   # Detailed tech docs
+│   ├── README.md                   # Detailed tech docs
+│   └── SUPABASE_SETUP.md           # Database setup guide
 │
 ├── docker-compose.yml              # PostgreSQL setup
-├── SUPABASE_SETUP.md               # Database setup guide
 └── package.json                    # Root package.json
 ```
 
@@ -399,7 +399,7 @@ NEXT_PUBLIC_STELLAR_NETWORK=testnet
 For more detailed technical documentation, see:
 
 - **[Technical Docs](docs/README.md)** - Architecture, data models, troubleshooting
-- **[Database Setup](SUPABASE_SETUP.md)** - Supabase configuration guide
+- **[Database Setup](docs/SUPABASE_SETUP.md)** - Supabase configuration guide
 
 ---
 
