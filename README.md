@@ -390,7 +390,9 @@ NEXT_PUBLIC_STELLAR_NETWORK=testnet
    - Visit [Stellar Expert - Friendbot](https://stellarexpert.io/wallet/testnet/) to fund your testnet account
    - Or use the [Stellar Testbot](https://testbot.stellar.org/) service
    - Request at least 10,000 XLM testnet tokens
-4. Open PayMint frontend at http://localhost:3000
+4. Open PayMint frontend:
+   - Local: http://localhost:3000
+   - Or use the live demo: https://pay-mint-web.vercel.app/
 5. Connect your wallet using the "Connect Freighter" button
 6. Register your agent and add service offerings
 7. Test payments - you must have testnet XLM/USDC in your wallet
