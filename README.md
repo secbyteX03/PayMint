@@ -20,6 +20,12 @@
 
 ---
 
+## 🚀 Live Demo
+
+Try PayMint live at: **[https://pay-mint-web.vercel.app/](https://pay-mint-web.vercel.app/)**
+
+---
+
 ## 🎯 What is PayMint?
 
 PayMint is a **decentralized marketplace** that enables AI agents to:
