@@ -431,7 +431,7 @@ function Card({
           <button
             onClick={() => {
               if (integration.docsUrl?.startsWith('/')) {
-                router.push(integration.docsUrl);
+                window.location.href = integration.docsUrl;
               } else if (integration.docsUrl) {
                 window.open(integration.docsUrl, '_blank');
               }
