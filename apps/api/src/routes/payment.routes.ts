@@ -66,6 +66,58 @@ router.post('/x402/header', async (req: Request, res: Response) => {
   }
 });
 
+// Confirm escrow lock - record transaction hash after buyer sends funds to escrow
+router.post('/lock-confirm', async (req: Request, res: Response) => {
+  try {
+    const { paymentId, transactionHash } = req.body;
+    
+    if (!paymentId || !transactionHash) {
+      return res.status(400).json({ error: 'Missing required fields: paymentId, transactionHash' });
+    }
+    
+    // Get payment details
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+    
+    if (fetchError || !payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    
+    if (payment.status !== 'ESCROW_CREATED') {
+      return res.status(400).json({ error: 'Payment is not in escrow status' });
+    }
+    
+    // Record the transaction hash
+    const { data: updatedPayment, error: updateError } = await supabase
+      .from('payments')
+      .update({ 
+        transactionHash: transactionHash,
+        status: 'ESCROW_LOCKED'
+      })
+      .eq('id', paymentId)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error('Error recording transaction hash:', updateError);
+      return res.status(500).json({ error: 'Failed to record transaction hash' });
+    }
+    
+    console.log('Escrow lock confirmed for payment:', paymentId, { transactionHash });
+    
+    res.json({
+      success: true,
+      payment: updatedPayment,
+      message: 'Transaction hash recorded. Funds are now locked in escrow.'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Verify payment and release escrow (sends funds from escrow to seller)
 router.post('/release', async (req: Request, res: Response) => {
   try {
@@ -384,31 +436,49 @@ router.post('/resolve-dispute', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Payment is not in disputed status' });
     }
     
-    // Execute escrow transaction if refunding buyer
-    if (refundBuyer) {
-      try {
-        const refundResult = await escrowService.signAndSubmitEscrowTransaction(
-          payment.buyerAddress,
-          payment.amount.toString(),
-          payment.currency || 'XLM'
-        );
-        console.log('Dispute resolution - refund to buyer:', refundResult);
-      } catch (escrowError: any) {
-        console.error('Escrow refund failed during dispute resolution:', escrowError);
-        return res.status(500).json({ error: `Escrow refund failed: ${escrowError.message}` });
+    // Validate that escrow was actually created (funds were locked)
+    // Check for ESCROW_CREATED status (payment created) or ESCROW_LOCKED (funds confirmed)
+    // or transactionHash/escrowId exists
+    const hasEscrow = !!(payment.escrowId || payment.transactionHash || payment.status === 'ESCROW_LOCKED');
+    if (!hasEscrow) {
+      console.warn('No escrow found for payment:', paymentId, { escrowId: payment.escrowId, txHash: payment.transactionHash });
+      console.warn('Proceeding with dispute resolution WITHOUT Stellar transaction. Funds may not have been locked.');
+    }
+    
+    // Execute escrow transaction only if escrow exists
+    if (hasEscrow) {
+      // Check if escrow secret is configured
+      if (!process.env.ESCROW_SECRET) {
+        console.error('ESCROW_SECRET not configured');
+        return res.status(500).json({ error: 'Escrow wallet is not configured. Please contact administrator.' });
       }
-    } else {
-      // Release funds to seller (they weren't released before since payment was disputed)
-      try {
-        const releaseResult = await escrowService.signAndSubmitEscrowTransaction(
-          payment.sellerAddress,
-          payment.amount.toString(),
-          payment.currency || 'XLM'
-        );
-        console.log('Dispute resolution - release to seller:', releaseResult);
-      } catch (escrowError: any) {
-        console.error('Escrow release failed during dispute resolution:', escrowError);
-        return res.status(500).json({ error: `Escrow release failed: ${escrowError.message}` });
+      
+      // Execute escrow transaction if refunding buyer
+      if (refundBuyer) {
+        try {
+          const refundResult = await escrowService.signAndSubmitEscrowTransaction(
+            payment.buyerAddress,
+            payment.amount.toString(),
+            payment.currency || 'XLM'
+          );
+          console.log('Dispute resolution - refund to buyer:', refundResult);
+        } catch (escrowError: any) {
+          console.error('Escrow refund failed during dispute resolution:', escrowError);
+          return res.status(500).json({ error: `Escrow refund failed: ${escrowError.message}` });
+        }
+      } else {
+        // Release funds to seller (they weren't released before since payment was disputed)
+        try {
+          const releaseResult = await escrowService.signAndSubmitEscrowTransaction(
+            payment.sellerAddress,
+            payment.amount.toString(),
+            payment.currency || 'XLM'
+          );
+          console.log('Dispute resolution - release to seller:', releaseResult);
+        } catch (escrowError: any) {
+          console.error('Escrow release failed during dispute resolution:', escrowError);
+          return res.status(500).json({ error: `Escrow release failed: ${escrowError.message}` });
+        }
       }
     }
     

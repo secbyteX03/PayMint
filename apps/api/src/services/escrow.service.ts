@@ -258,15 +258,21 @@ export class EscrowService {
     success: boolean;
   }> {
     if (!this.escrowSecret) {
-      throw new Error('Escrow wallet secret not configured');
+      throw new Error('ESCROW_SECRET environment variable not configured. Please set up the escrow wallet secret.');
     }
     
     try {
       const StellarSdk = await import('@stellar/stellar-sdk');
       const server = new StellarSdk.Horizon.Server(this.horizonUrl, { allowHttp: true });
       
-      // Load escrow account
-      const sourceAccount = await server.loadAccount(this.escrowWallet);
+      // Verify escrow account exists and get balance
+      let sourceAccount;
+      try {
+        sourceAccount = await server.loadAccount(this.escrowWallet);
+      } catch (accountError: any) {
+        console.error('Failed to load escrow account:', this.escrowWallet, accountError);
+        throw new Error(`Escrow wallet account not found on Stellar network: ${this.escrowWallet}. Please ensure the escrow wallet is funded.`);
+      }
       
       // Build transaction
       const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
@@ -296,8 +302,19 @@ export class EscrowService {
         hash: result.hash,
         success: true,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing/submitting escrow transaction:', error);
+      
+      // Provide better error messages for common issues
+      if (error.response?.status === 400) {
+        const errorData = error.response?.data?.extras?.reason || error.response?.data?.detail || 'Invalid transaction';
+        throw new Error(`Transaction rejected (400): ${errorData}. Please check the escrow wallet has sufficient funds and the recipient address is valid.`);
+      } else if (error.response?.status === 504) {
+        throw new Error('Transaction timed out. Please try again later. The Stellar network may be experiencing high load.');
+      } else if (error.code === 'ERR_NETWORK') {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
+      
       throw error;
     }
   }

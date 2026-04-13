@@ -248,9 +248,9 @@ export class PaymentService {
       throw new Error('Payment not found');
     }
 
-    // Can open dispute for ESCROW_CREATED, REFUND_REQUESTED, or REFUND_REJECTED
+    // Can open dispute for ESCROW_CREATED, ESCROW_LOCKED, REFUND_REQUESTED, or REFUND_REJECTED
     console.log('Current payment status:', payment.status);
-    if (payment.status !== 'ESCROW_CREATED' && payment.status !== 'REFUND_REQUESTED' && payment.status !== 'REFUND_REJECTED') {
+    if (payment.status !== 'ESCROW_CREATED' && payment.status !== 'ESCROW_LOCKED' && payment.status !== 'REFUND_REQUESTED' && payment.status !== 'REFUND_REJECTED') {
       throw new Error('Cannot open dispute for this payment status: ' + payment.status);
     }
 
