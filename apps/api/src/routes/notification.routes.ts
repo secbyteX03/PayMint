@@ -15,7 +15,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from('notifications')
       .insert({
-        userAddress,
+        user_address: userAddress,
         type,
         title,
         message,
@@ -87,8 +87,8 @@ router.post('/address/:address/read-all', async (req: Request, res: Response) =>
     const { error } = await supabase
       .from('notifications')
       .update({ isRead: true })
-      .eq('userAddress', address)
-      .eq('isRead', false);
+      .eq('user_address', address)
+      .eq('is_read', false);
     
     if (error) throw error;
     
@@ -106,8 +106,8 @@ router.get('/address/:address/unread-count', async (req: Request, res: Response)
     const { count, error } = await supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
-      .eq('userAddress', address)
-      .eq('isRead', false);
+      .eq('user_address', address)
+      .eq('is_read', false);
     
     if (error) throw error;
     

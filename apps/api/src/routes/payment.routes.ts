@@ -3,11 +3,22 @@ import { supabase } from '../config/prisma';
 import { PaymentService } from '../services/payment.service';
 import { x402Service } from '../services/x402.service';
 import { webhookService } from '../services/webhook.service';
+import { escrowService } from '../services/escrow.service';
 
 const router = Router();
 const paymentService = new PaymentService();
 
-// Create payment (x402 handshake)
+// Get escrow wallet address (for frontend to know where to send funds)
+router.get('/escrow/wallet', async (req: Request, res: Response) => {
+  try {
+    const wallet = escrowService.getEscrowWallet();
+    res.json({ escrowWallet: wallet });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create payment and get escrow lock instructions
 router.post('/create', async (req: Request, res: Response) => {
   try {
     const { serviceId, buyerAddress, amount, currency } = req.body;
@@ -16,6 +27,10 @@ router.post('/create', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
+    // Get escrow wallet address
+    const escrowWallet = escrowService.getEscrowWallet();
+    
+    // Create payment record with ESCROW_PENDING status (waiting for funds to be locked)
     const payment = await paymentService.createPayment(
       serviceId,
       buyerAddress,
@@ -23,27 +38,13 @@ router.post('/create', async (req: Request, res: Response) => {
       currency || 'USDC'
     );
     
-    // Notify seller agent of new payment
-    try {
-      const { data: service } = await supabase
-        .from('services')
-        .select('agentId')
-        .eq('id', serviceId)
-        .single();
-      
-      if (service?.agentId) {
-        await webhookService.notifyPaymentCreated(service.agentId, {
-          id: payment.id,
-          amount: payment.amount,
-          buyerAddress: payment.buyerAddress,
-          serviceId: payment.serviceId,
-        });
-      }
-    } catch (webhookError) {
-      console.error('Webhook notification failed:', webhookError);
-    }
-    
-    res.status(201).json(payment);
+    // Return the payment along with escrow instructions
+    res.status(201).json({
+      ...payment,
+      escrowWallet,
+      needsLock: true, // Frontend should call lock endpoint
+      message: `Send ${amount} ${currency || 'XLM'} to escrow wallet ${escrowWallet}`
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -65,40 +66,62 @@ router.post('/x402/header', async (req: Request, res: Response) => {
   }
 });
 
-// Verify payment and release escrow
+// Verify payment and release escrow (sends funds from escrow to seller)
 router.post('/release', async (req: Request, res: Response) => {
   try {
     const { paymentId, transactionHash } = req.body;
     
-    if (!paymentId || !transactionHash) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!paymentId) {
+      return res.status(400).json({ error: 'Missing required fields: paymentId' });
     }
     
-    const result = await paymentService.releasePayment(paymentId, transactionHash);
+    // Get payment details
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+    
+    if (fetchError || !payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    
+    if (payment.status !== 'ESCROW_CREATED') {
+      return res.status(400).json({ error: 'Payment is not in escrow status' });
+    }
+    
+    // Execute release: send funds from escrow to seller
+    try {
+      const releaseResult = await escrowService.signAndSubmitEscrowTransaction(
+        payment.sellerAddress,
+        payment.amount.toString(),
+        payment.currency || 'XLM'
+      );
+      
+      console.log('Escrow release transaction:', releaseResult);
+    } catch (escrowError: any) {
+      console.error('Escrow release failed:', escrowError);
+      return res.status(500).json({ error: `Escrow release failed: ${escrowError.message}` });
+    }
+    
+    // Update payment status
+    const result = await paymentService.releasePayment(paymentId, transactionHash || 'escrow_release');
     
     // Notify seller agent of payment completed
     if (result) {
       try {
-        const { data: payment } = await supabase
-          .from('payments')
-          .select('serviceId, amount')
-          .eq('id', paymentId)
+        const { data: service } = await supabase
+          .from('services')
+          .select('agentId')
+          .eq('id', payment.serviceId)
           .single();
         
-        if (payment) {
-          const { data: service } = await supabase
-            .from('services')
-            .select('agentId')
-            .eq('id', payment.serviceId)
-            .single();
-          
-          if (service?.agentId) {
-            await webhookService.notifyPaymentCompleted(service.agentId, {
-              id: paymentId,
-              amount: payment.amount,
-              transactionHash,
-            });
-          }
+        if (service?.agentId) {
+          await webhookService.notifyPaymentCompleted(service.agentId, {
+            id: paymentId,
+            amount: payment.amount,
+            transactionHash: 'escrow_release',
+          });
         }
       } catch (webhookError) {
         console.error('Webhook notification failed:', webhookError);
@@ -166,7 +189,7 @@ router.post('/refund', async (req: Request, res: Response) => {
   }
 });
 
-// Approve refund - actually refunds the payment
+// Approve refund - actually refunds the payment (sends funds from escrow back to buyer)
 router.post('/approve-refund', async (req: Request, res: Response) => {
   try {
     const { paymentId } = req.body;
@@ -175,40 +198,62 @@ router.post('/approve-refund', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
+    // Get payment details first
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+    
+    if (fetchError || !payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    
+    if (payment.status !== 'REFUND_REQUESTED') {
+      return res.status(400).json({ error: 'No refund request to approve' });
+    }
+    
+    // Execute refund: send funds from escrow back to buyer
+    try {
+      const refundResult = await escrowService.signAndSubmitEscrowTransaction(
+        payment.buyerAddress,
+        payment.amount.toString(),
+        payment.currency || 'XLM'
+      );
+      
+      console.log('Escrow refund transaction:', refundResult);
+    } catch (escrowError: any) {
+      console.error('Escrow refund failed:', escrowError);
+      return res.status(500).json({ error: `Escrow refund failed: ${escrowError.message}` });
+    }
+    
+    // Update payment status
     const result = await paymentService.approveRefund(paymentId);
     
     // Notify seller agent that refund was approved (funds returned to buyer)
     if (result) {
       try {
-        const { data: payment } = await supabase
-          .from('payments')
-          .select('serviceId, amount, buyerAddress')
-          .eq('id', paymentId)
+        const { data: service } = await supabase
+          .from('services')
+          .select('agentId')
+          .eq('id', payment.serviceId)
           .single();
         
-        if (payment) {
-          const { data: service } = await supabase
-            .from('services')
-            .select('agentId')
-            .eq('id', payment.serviceId)
-            .single();
-          
-          if (service?.agentId) {
-            await webhookService.notifyPaymentRefunded(service.agentId, {
-              id: paymentId,
-              amount: payment.amount,
-            });
-          }
-          
-          // Create notification for buyer that refund was approved
-          await supabase.from('notifications').insert({
-            userAddress: payment.buyerAddress,
-            type: 'REFUND_APPROVED',
-            title: 'Refund Approved',
-            message: `Your refund of ${payment.amount} XLM has been approved. The funds will be returned to your wallet.`,
-            paymentId,
+        if (service?.agentId) {
+          await webhookService.notifyPaymentRefunded(service.agentId, {
+            id: paymentId,
+            amount: payment.amount,
           });
         }
+        
+        // Create notification for buyer that refund was approved
+        await supabase.from('notifications').insert({
+          user_address: payment.buyerAddress,
+          type: 'REFUND_APPROVED',
+          title: 'Refund Approved',
+          message: `Your refund of ${payment.amount} XLM has been approved. The funds will be returned to your wallet.`,
+          paymentId,
+        });
       } catch (webhookError) {
         console.error('Refund approved webhook notification failed:', webhookError);
       }
@@ -322,6 +367,49 @@ router.post('/resolve-dispute', async (req: Request, res: Response) => {
     
     if (!paymentId) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Get payment details first
+    const { data: payment, error: fetchError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id', paymentId)
+      .single();
+    
+    if (fetchError || !payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    
+    if (payment.status !== 'DISPUTED') {
+      return res.status(400).json({ error: 'Payment is not in disputed status' });
+    }
+    
+    // Execute escrow transaction if refunding buyer
+    if (refundBuyer) {
+      try {
+        const refundResult = await escrowService.signAndSubmitEscrowTransaction(
+          payment.buyerAddress,
+          payment.amount.toString(),
+          payment.currency || 'XLM'
+        );
+        console.log('Dispute resolution - refund to buyer:', refundResult);
+      } catch (escrowError: any) {
+        console.error('Escrow refund failed during dispute resolution:', escrowError);
+        return res.status(500).json({ error: `Escrow refund failed: ${escrowError.message}` });
+      }
+    } else {
+      // Release funds to seller (they weren't released before since payment was disputed)
+      try {
+        const releaseResult = await escrowService.signAndSubmitEscrowTransaction(
+          payment.sellerAddress,
+          payment.amount.toString(),
+          payment.currency || 'XLM'
+        );
+        console.log('Dispute resolution - release to seller:', releaseResult);
+      } catch (escrowError: any) {
+        console.error('Escrow release failed during dispute resolution:', escrowError);
+        return res.status(500).json({ error: `Escrow release failed: ${escrowError.message}` });
+      }
     }
     
     const result = await paymentService.resolveDispute(paymentId, resolution, refundBuyer);
@@ -465,14 +553,89 @@ router.get('/address/:address', async (req: Request, res: Response) => {
 // Get all payments (without service join to avoid issues)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .order('createdAt', { ascending: false });
+    // Check if there's an address query parameter (for user-specific payments)
+    const address = req.query.address as string;
     
-    if (error) throw error;
+    let query = supabase
+      .from('payments')
+      .select('*');
+    
+    // If address is provided, filter by buyer or seller
+    if (address) {
+      query = query.or(`buyerAddress.eq.${address},sellerAddress.eq.${address})`);
+    }
+    
+    const { data, error } = await query.order('createdAt', { ascending: false }).limit(200);
+    
+    if (error) {
+      console.error('Error fetching payments:', error);
+      return res.status(500).json({ error: error.message });
+    }
+    
+    console.log('Fetched payments:', data?.length || 0);
     res.json(data || []);
   } catch (error: any) {
+    console.error('Error in payments route:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create test payment for testing dispute resolution
+router.post('/test/create', async (req: Request, res: Response) => {
+  try {
+    // First get an existing service
+    const { data: services } = await supabase
+      .from('services')
+      .select('id, agentId')
+      .limit(1);
+    
+    if (!services || services.length === 0) {
+      return res.status(400).json({ error: 'No services available to create test payment' });
+    }
+    
+    const service = services[0];
+    
+    // Get the agent's owner address (seller)
+    const { data: agent } = await supabase
+      .from('agents')
+      .select('ownerAddress')
+      .eq('id', service.agentId)
+      .single();
+    
+    if (!agent) {
+      return res.status(400).json({ error: 'Agent not found' });
+    }
+    
+    // Generate random test addresses
+    const buyerAddress = 'G' + Math.random().toString(36).substring(2, 58).padEnd(56, 'A').slice(0, 56);
+    const sellerAddress = agent.ownerAddress;
+    
+    // Create a disputed payment
+    const { data: payment, error } = await supabase
+      .from('payments')
+      .insert({
+        serviceId: service.id,
+        buyerAddress,
+        sellerAddress,
+        amount: 100,
+        currency: 'XLM',
+        status: 'DISPUTED',
+        refundReason: 'Test dispute - buyer claims service not delivered',
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating test payment:', error);
+      return res.status(500).json({ error: error.message });
+    }
+    
+    res.json({ 
+      message: 'Test disputed payment created', 
+      payment 
+    });
+  } catch (error: any) {
+    console.error('Error creating test payment:', error);
     res.status(500).json({ error: error.message });
   }
 });
