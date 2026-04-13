@@ -928,7 +928,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
             <div className="logo-icon">
               <Zap size={14} color="white" />
             </div>
-            AgentPay
+            PayMint
           </div>
           
           <span className="network-badge">STELLAR TESTNET</span>
