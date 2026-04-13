@@ -37,9 +37,11 @@ export default function EscrowPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
   const [showRefundConfirm, setShowRefundConfirm] = useState<string | null>(null);
   const [showDisputeConfirm, setShowDisputeConfirm] = useState<string | null>(null);
+  const [showResolveDisputeConfirm, setShowResolveDisputeConfirm] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
+  const [resolveDecision, setResolveDecision] = useState<'refund' | 'release' | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -110,6 +112,8 @@ export default function EscrowPage() {
         return { label: 'In Escrow', color: 'var(--accent)', icon: ShieldCheck };
       case 'REFUND_REQUESTED':
         return { label: 'Refund Requested', color: '#ff9500', icon: AlertCircle };
+      case 'REFUND_REJECTED':
+        return { label: 'Refund Rejected', color: '#ff6b6b', icon: XCircle };
       case 'COMPLETED':
         return { label: 'Released', color: '#00ff9d', icon: CheckCircle };
       case 'REFUNDED':
@@ -155,74 +159,42 @@ export default function EscrowPage() {
 
     const confirmed = confirm(
       `Release ${payment.amount} XLM to seller?\n\n` +
-      `This will send the escrowed funds to the seller address.`
+      `This will send the escrowed funds from the escrow wallet to the seller.`
     );
     
     if (!confirmed) return;
 
     setReleasing(paymentId);
     try {
-      // Build payment transaction from buyer to seller
-      const buildRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/stellar/payment/build`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: publicKey,
-            to: payment.sellerAddress,
-            amount: payment.amount.toString(),
-            asset: 'XLM',
-          }),
-        }
-      );
-      
-      if (!buildRes.ok) {
-        const errData = await buildRes.json();
-        throw new Error(errData.error || 'Failed to build transaction');
-      }
-      
-      const { transactionXdr } = await buildRes.json();
-      
-      // Sign and submit the transaction using Freighter
-      const result = await signAndSubmitTransaction(transactionXdr);
-      
-      if (!result) {
-        throw new Error('Transaction signing failed or was cancelled');
-      }
-
-      // Update payment status in database
+      // Call the release API - backend handles escrow transaction (signs from escrow wallet)
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/release`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId, transactionHash: result.hash }),
+        body: JSON.stringify({ paymentId }),
       });
       
-      // Dispatch notification for successful escrow release
-      window.dispatchEvent(new CustomEvent('add-notification', {
-        detail: {
-          message: `Escrow released: ${payment.amount} XLM to ${payment.recipient?.slice(0, 6)}...${payment.recipient?.slice(-4)}`,
-          type: 'success',
-          timestamp: new Date().toISOString()
-        }
-      }));
-
+      const data = await res.json();
+      
       if (res.ok) {
+        // Dispatch notification for successful escrow release
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: {
+            message: `Escrow released: ${payment.amount} XLM to ${payment.sellerAddress?.slice(0, 6)}...${payment.sellerAddress?.slice(-4)}`,
+            type: 'success',
+            timestamp: new Date().toISOString()
+          }
+        }));
+
         alert(
           `Funds released successfully!\n\n` +
-          `Transaction Hash: ${result.hash.slice(0, 12)}...\n` +
-          `Amount: ${payment.amount} XLM\n\n` +
-          `The seller has received the payment.`
+          `Amount: ${payment.amount} XLM\n` +
+          `Seller: ${payment.sellerAddress?.slice(0, 6)}...${payment.sellerAddress?.slice(-4)}\n\n` +
+          `The seller has received the payment from escrow.`
         );
         fetchData();
       } else {
-        const data = await res.json();
-        // Even if API fails, the XLM was sent - just log error
-        console.error('Failed to update payment status:', data.error);
-        alert(
-          `Payment sent but status update failed.\n` +
-          `Hash: ${result.hash}`
-        );
+        console.error('Failed to release:', data.error);
+        alert(`Error: ${data.error || 'Failed to release escrow'}`);
       }
     } catch (err: any) {
       console.error('Failed to release payment:', err);
@@ -309,6 +281,8 @@ export default function EscrowPage() {
         body: JSON.stringify({ paymentId, reason: disputeReason }),
       });
       
+      const data = await res.json();
+      
       if (res.ok) {
         fetchData();
         setShowDisputeConfirm(null);
@@ -317,11 +291,12 @@ export default function EscrowPage() {
           detail: { message: 'Dispute opened', type: 'warning', timestamp: new Date().toISOString() }
         }));
       } else {
-        const data = await res.json();
         console.error('Failed to dispute:', data.error);
+        alert(`Error: ${data.error || 'Failed to open dispute'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to dispute payment:', err);
+      alert(`Error: ${err.message || 'Failed to open dispute'}`);
     }
   };
 
@@ -336,70 +311,38 @@ export default function EscrowPage() {
       
       const refundDetails = await detailsRes.json();
       
-      // Ask seller to confirm they will send funds back to buyer
+      // Ask seller to confirm they approve the refund (escrow will handle the transaction)
       const confirmed = confirm(
         `Approve refund and return ${refundDetails.amount} XLM to buyer?\n\n` +
         `This will return funds to: ${refundDetails.buyerAddress.slice(0, 6)}...${refundDetails.buyerAddress.slice(-4)}\n\n` +
-        `You must send the funds via Stellar to complete the refund.`
+        `The escrow wallet will send the funds back to the buyer.`
       );
       
       if (!confirmed) return;
       
-      // Build and sign refund transaction from seller to buyer
-      const buildRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/stellar/payment/build`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: publicKey,
-            to: refundDetails.buyerAddress,
-            amount: refundDetails.amount.toString(),
-            asset: 'XLM',
-          }),
-        }
-      );
-      
-      if (!buildRes.ok) {
-        const errData = await buildRes.json();
-        throw new Error(errData.error || 'Failed to build refund transaction');
-      }
-      
-      const { transactionXdr } = await buildRes.json();
-      
-      // Sign and submit the transaction using Freighter
-      const result = await signAndSubmitTransaction(transactionXdr);
-      
-      if (!result) {
-        throw new Error('Transaction signing failed or was cancelled');
-      }
-      
-      // Now approve the refund in the database
+      // Call the approve-refund API - backend handles escrow transaction (signs from escrow wallet)
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/approve-refund`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentId }),
       });
       
+      const data = await res.json();
+      
       if (res.ok) {
         fetchData();
         window.dispatchEvent(new CustomEvent('add-notification', {
-          detail: { message: 'Refund approved and funds returned to buyer', type: 'success', timestamp: new Date().toISOString() }
+          detail: { message: `Refund approved: ${refundDetails.amount} XLM returned to buyer`, type: 'success', timestamp: new Date().toISOString() }
         }));
         alert(
           `Refund completed successfully!\n\n` +
-          `Transaction Hash: ${result.hash.slice(0, 12)}...\n` +
-          `Amount: ${refundDetails.amount} XLM\n\n` +
-          `The buyer has received the funds back.`
+          `Amount: ${refundDetails.amount} XLM\n` +
+          `Buyer: ${refundDetails.buyerAddress.slice(0, 6)}...${refundDetails.buyerAddress.slice(-4)}\n\n` +
+          `The buyer has received the funds back from escrow.`
         );
       } else {
-        const data = await res.json();
-        // Even if API fails, the XLM was sent - just log error
-        console.error('Failed to update payment status:', data.error);
-        alert(
-          `Refund sent but status update failed.\n` +
-          `Hash: ${result.hash}`
-        );
+        console.error('Failed to approve refund:', data.error);
+        alert(`Error: ${data.error || 'Failed to approve refund'}`);
       }
     } catch (err: any) {
       console.error('Failed to approve refund:', err);
@@ -426,6 +369,47 @@ export default function EscrowPage() {
       }
     } catch (err) {
       console.error('Failed to reject refund:', err);
+    }
+  };
+
+  const handleResolveDispute = async (paymentId: string, refundBuyer: boolean) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/resolve-dispute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          paymentId, 
+          refundBuyer,
+          resolution: refundBuyer ? 'Refund to buyer via mutual resolution' : 'Release to seller via mutual resolution'
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        fetchData();
+        setShowResolveDisputeConfirm(null);
+        setResolveDecision(null);
+        window.dispatchEvent(new CustomEvent('add-notification', {
+          detail: { 
+            message: refundBuyer 
+              ? `Dispute resolved: ${data.amount || 'funds'} returned to buyer`
+              : `Dispute resolved: funds released to seller`,
+            type: 'success', 
+            timestamp: new Date().toISOString() 
+          }
+        }));
+        alert(
+          `Dispute resolved successfully!\n\n` +
+          `${refundBuyer ? 'Funds have been returned to the buyer from escrow.' : 'Funds have been released to the seller from escrow.'}`
+        );
+      } else {
+        console.error('Failed to resolve dispute:', data.error);
+        alert(`Error: ${data.error || 'Failed to resolve dispute'}`);
+      }
+    } catch (err: any) {
+      console.error('Failed to resolve dispute:', err);
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -1269,6 +1253,12 @@ export default function EscrowPage() {
           Refund Requested ({inProgressEscrows.filter(p => p.status === 'REFUND_REQUESTED').length})
         </button>
         <button 
+          className={`filter-btn ${filterStatus === 'REFUND_REJECTED' ? 'active' : ''}`}
+          onClick={() => setFilterStatus('REFUND_REJECTED')}
+        >
+          Refund Rejected ({userEscrows.filter(p => p.status === 'REFUND_REJECTED').length})
+        </button>
+        <button 
           className={`filter-btn ${filterStatus === 'DISPUTED' ? 'active' : ''}`}
           onClick={() => setFilterStatus('DISPUTED')}
         >
@@ -1302,7 +1292,7 @@ export default function EscrowPage() {
             
             return (
               <div key={escrow.id} className="escrow-item">
-                <div className={`escrow-icon ${escrow.status === 'COMPLETED' ? 'released' : escrow.status === 'ESCROW_CREATED' ? 'escrow' : escrow.status === 'REFUND_REQUESTED' ? 'refund-requested' : escrow.status === 'DISPUTED' ? 'disputed' : 'pending'}`}>
+                <div className={`escrow-icon ${escrow.status === 'COMPLETED' ? 'released' : escrow.status === 'ESCROW_CREATED' ? 'escrow' : escrow.status === 'REFUND_REQUESTED' ? 'refund-requested' : escrow.status === 'REFUND_REJECTED' ? 'refund-rejected' : escrow.status === 'DISPUTED' ? 'disputed' : 'pending'}`}>
                   <StatusIcon size={24} />
                 </div>
                 <div className="escrow-info">
@@ -1321,7 +1311,7 @@ export default function EscrowPage() {
                       <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(255,149,0,0.15)', borderRadius: '6px', border: '1px solid rgba(255,149,0,0.3)' }}>
                         {escrow.buyerAddress === publicKey ? (
                           <span style={{ color: '#ff9500', fontSize: '12px' }}>
-                            ⏳ <strong>Waiting for seller approval</strong> - They can approve or reject the refund
+                            ⏳ <strong>Waiting for seller approval</strong> - They can approve or reject the refund. If rejected, you can open a dispute.
                           </span>
                         ) : (
                           <span style={{ color: '#ff9500', fontSize: '12px' }}>
@@ -1330,10 +1320,23 @@ export default function EscrowPage() {
                         )}
                       </div>
                     )}
+                    {escrow.status === 'REFUND_REJECTED' && (
+                      <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(255,107,107,0.15)', borderRadius: '6px', border: '1px solid rgba(255,107,107,0.3)' }}>
+                        {escrow.sellerAddress === publicKey ? (
+                          <span style={{ color: '#ff6b6b', fontSize: '12px' }}>
+                            ❌ <strong>You rejected the refund</strong> - The buyer can now open a dispute if they wish.
+                          </span>
+                        ) : (
+                          <span style={{ color: '#ff6b6b', fontSize: '12px' }}>
+                            ❌ <strong>Refund rejected by seller</strong> - You can open a dispute if you believe this is unfair.
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {escrow.status === 'DISPUTED' && (
                       <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(255,0,255,0.15)', borderRadius: '6px', border: '1px solid rgba(255,0,255,0.3)' }}>
                         <span style={{ color: '#ff00ff', fontSize: '12px' }}>
-                          ⚠️ <strong>Under Dispute</strong> - Our support team will review the case
+                          ⚠️ <strong>Funds are held in escrow</strong> - Please try to resolve directly within 12 hours or an admin will step in.
                         </span>
                       </div>
                     )}
@@ -1343,13 +1346,13 @@ export default function EscrowPage() {
                   <div className="amount-value">${parseFloat(escrow.amount || 0).toFixed(2)}</div>
                   <div className="amount-usdc">USDC</div>
                 </div>
-                <div className={`status-badge status-${escrow.status === 'ESCROW_CREATED' ? 'escrow' : escrow.status === 'REFUND_REQUESTED' ? 'refund-requested' : escrow.status === 'DISPUTED' ? 'disputed' : escrow.status?.toLowerCase()}`}>
+                <div className={`status-badge status-${escrow.status === 'ESCROW_CREATED' ? 'escrow' : escrow.status === 'REFUND_REQUESTED' ? 'refund-requested' : escrow.status === 'REFUND_REJECTED' ? 'refund-rejected' : escrow.status === 'DISPUTED' ? 'disputed' : escrow.status?.toLowerCase()}`}>
                   <StatusIcon size={14} />
                   {statusInfo.label}
                 </div>
                 
-                {/* Action Buttons - Only show for PENDING, ESCROW_CREATED, REFUND_REQUESTED */}
-                {(escrow.status === 'PENDING' || escrow.status === 'ESCROW_CREATED' || escrow.status === 'REFUND_REQUESTED') && (
+                {/* Action Buttons - Only show for PENDING, ESCROW_CREATED, REFUND_REQUESTED, REFUND_REJECTED */}
+                {(escrow.status === 'PENDING' || escrow.status === 'ESCROW_CREATED' || escrow.status === 'REFUND_REQUESTED' || escrow.status === 'REFUND_REJECTED') && (
                   <div className="action-buttons">
                     {/* Release Button - Only for ESCROW_CREATED and only if user is the BUYER */}
                     {escrow.status === 'ESCROW_CREATED' && escrow.buyerAddress === publicKey && (
@@ -1391,8 +1394,17 @@ export default function EscrowPage() {
                       </button>
                     )}
 
-                    {/* Seller Actions for REFUND_REQUESTED - Only show for SELLER */}
-                    {escrow.status === 'REFUND_REQUESTED' && escrow.sellerAddress === publicKey && (
+                    {/* Show Refund Rejected Message - When seller rejected the refund (status is REFUND_REJECTED) */}
+                    {escrow.status === 'REFUND_REJECTED' && escrow.buyerAddress === publicKey && (
+                      <div style={{ marginTop: '8px', padding: '8px 12px', background: 'rgba(255,107,107,0.15)', borderRadius: '6px', border: '1px solid rgba(255,107,107,0.3)' }}>
+                        <span style={{ color: '#ff6b6b', fontSize: '12px' }}>
+                          ⚠️ <strong>Seller rejected your refund request</strong> - You can now open a dispute.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Seller Actions for REFUND_REQUESTED - Only show for SELLER who did NOT request the refund (i.e., the other party) */}
+                    {escrow.status === 'REFUND_REQUESTED' && escrow.sellerAddress === publicKey && escrow.buyerAddress !== publicKey && (
                       <>
                         <button 
                           className="approve-btn"
@@ -1411,14 +1423,50 @@ export default function EscrowPage() {
                       </>
                     )}
 
-                    {/* Dispute Button - For REFUND_REQUESTED: Buyer can dispute if refund requested, or Seller can dispute if they rejected refund */}
-                    {escrow.status === 'REFUND_REQUESTED' && (
+                    {/* Dispute Button - For REFUND_REJECTED: Only BUYER can dispute (since they requested the refund and it was rejected) */}
+                    {escrow.status === 'REFUND_REJECTED' && escrow.buyerAddress === publicKey && (
                       <button 
                         className="dispute-btn"
-                        onClick={() => setShowDisputeConfirm(escrow.id)}
+                        onClick={() => {
+                          console.log('Clicking dispute button for escrow:', escrow.id, 'status:', escrow.status, 'buyer:', escrow.buyerAddress, 'publicKey:', publicKey);
+                          setShowDisputeConfirm(escrow.id);
+                        }}
                       >
                         <AlertCircle size={14} />
                         Dispute
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {/* Action Buttons for DISPUTED Status - Only show the option that benefits the OTHER party */}
+                {escrow.status === 'DISPUTED' && (escrow.buyerAddress === publicKey || escrow.sellerAddress === publicKey) && (
+                  <div className="action-buttons" style={{ marginTop: '12px' }}>
+                    {escrow.buyerAddress === publicKey ? (
+                      // Buyer is viewing - only show Release to Seller (can't refund to yourself)
+                      <button 
+                        className="release-btn"
+                        onClick={() => {
+                          setShowResolveDisputeConfirm(escrow.id);
+                          setResolveDecision('release');
+                        }}
+                        style={{ background: '#00ff9d' }}
+                      >
+                        <CheckCircle size={14} />
+                        Resolve: Release to Seller
+                      </button>
+                    ) : (
+                      // Seller is viewing - only show Refund to Buyer (can't release to yourself)
+                      <button 
+                        className="refund-btn"
+                        onClick={() => {
+                          setShowResolveDisputeConfirm(escrow.id);
+                          setResolveDecision('refund');
+                        }}
+                        style={{ background: '#ff6b6b', color: 'white' }}
+                      >
+                        <XCircle size={14} />
+                        Resolve: Refund to Buyer
                       </button>
                     )}
                   </div>
@@ -1516,6 +1564,35 @@ export default function EscrowPage() {
                         disabled={!disputeReason.trim()}
                       >
                         Open Dispute
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Resolve Dispute Confirmation Dialog */}
+                {showResolveDisputeConfirm === escrow.id && (
+                  <div className="confirm-dialog" style={{ width: '100%', marginTop: '12px' }}>
+                    <div className="confirm-text" style={{ color: resolveDecision === 'release' ? '#00ff9d' : '#ff6b6b', marginBottom: '16px', padding: '12px', background: resolveDecision === 'release' ? 'rgba(0,255,157,0.1)' : 'rgba(255,107,107,0.1)', borderRadius: '8px' }}>
+                      <strong>⚠️ Resolve Dispute</strong><br/>
+                      {resolveDecision === 'release' 
+                        ? `This will release ${escrow.amount} XLM from escrow to the seller.`
+                        : `This will refund ${escrow.amount} XLM from escrow to the buyer.`}
+                      <br/><br/>
+                      <em>Both parties must agree to resolve the dispute this way.</em>
+                    </div>
+                    <div className="confirm-actions">
+                      <button 
+                        className="confirm-btn secondary"
+                        onClick={() => { setShowResolveDisputeConfirm(null); setResolveDecision(null); }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="confirm-btn"
+                        style={{ background: resolveDecision === 'release' ? '#00ff9d' : '#ff6b6b', color: resolveDecision === 'release' ? '#080c14' : 'white' }}
+                        onClick={() => handleResolveDispute(escrow.id, resolveDecision === 'refund')}
+                      >
+                        Confirm Resolution
                       </button>
                     </div>
                   </div>
