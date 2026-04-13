@@ -42,6 +42,11 @@ export class PaymentService {
       .select()
       .single();
 
+    // Log warning if escrow secret is not configured
+    if (!process.env.ESCROW_SECRET) {
+      console.warn('WARNING: ESCROW_SECRET not configured. Release/Refund will fail!');
+    }
+
     if (error) throw new Error(error.message);
     return data;
   }
@@ -209,49 +214,68 @@ export class PaymentService {
       throw new Error('No refund request to reject');
     }
 
-    // Reject refund - go back to ESCROW_CREATED
+    // Reject refund - set status to REFUND_REJECTED
+    console.log('Rejecting refund for payment:', paymentId, 'Current status:', payment.status);
     const { data: updated, error } = await supabase
       .from('payments')
       .update({
-        status: 'ESCROW_CREATED',
+        status: 'REFUND_REJECTED',
       })
       .eq('id', paymentId)
       .select('*, services(*)')
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error('Error updating status to REFUND_REJECTED:', error);
+      throw new Error(error.message);
+    }
+    console.log('Payment updated to REFUND_REJECTED:', updated);
     return updated;
   }
 
   async openDispute(paymentId: string, reason?: string) {
+    console.log('openDispute called with paymentId:', paymentId, 'reason:', reason);
     const { data: payment, error: fetchError } = await supabase
       .from('payments')
       .select('*')
       .eq('id', paymentId)
       .single();
 
+    console.log('Fetched payment:', payment);
+    console.log('Fetch error:', fetchError);
+
     if (fetchError || !payment) {
       throw new Error('Payment not found');
     }
 
-    // Can open dispute for ESCROW_CREATED or REFUND_REQUESTED
-    if (payment.status !== 'ESCROW_CREATED' && payment.status !== 'REFUND_REQUESTED') {
-      throw new Error('Cannot open dispute for this payment status');
+    // Can open dispute for ESCROW_CREATED, REFUND_REQUESTED, or REFUND_REJECTED
+    console.log('Current payment status:', payment.status);
+    if (payment.status !== 'ESCROW_CREATED' && payment.status !== 'REFUND_REQUESTED' && payment.status !== 'REFUND_REJECTED') {
+      throw new Error('Cannot open dispute for this payment status: ' + payment.status);
     }
 
-    // Set status to DISPUTED
-    const { data: updated, error } = await supabase
+    // Set status to DISPUTED - just update status without the extra columns to avoid schema cache issues
+    const { data: updatedPayment, error } = await supabase
       .from('payments')
-      .update({
-        status: 'DISPUTED',
-        refundReason: reason,
-      })
+      .update({ status: 'DISPUTED' })
       .eq('id', paymentId)
-      .select('*, services(*)')
+      .select('*')
       .single();
 
-    if (error) throw new Error(error.message);
-    return updated;
+    if (error) {
+      console.error('Error updating payment to DISPUTED:', error);
+      throw new Error(error.message);
+    }
+    
+    // Now update the dispute reason separately
+    if (reason) {
+      await supabase
+        .from('payments')
+        .update({ disputeReason: reason })
+        .eq('id', paymentId);
+    }
+    
+    return updatedPayment;
   }
 
   async resolveDispute(paymentId: string, resolution?: string, refundBuyer: boolean = false) {
