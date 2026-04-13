@@ -219,7 +219,12 @@ export default function PaymentsPage() {
     }
     
     // Then filter by status
-    if (filterStatus !== 'all' && p.status !== filterStatus) return false;
+    if (filterStatus !== 'all') {
+      // Map PENDING filter to include both PENDING and ESCROW_CREATED (payments in escrow awaiting release)
+      if (filterStatus === 'PENDING') {
+        if (p.status !== 'PENDING' && p.status !== 'ESCROW_CREATED') return false;
+      } else if (p.status !== filterStatus) return false;
+    }
     return true;
   });
   

@@ -22,33 +22,33 @@
 
 ## 📋 Table of Contents
 
-- [🚀 Live Demo](#-live-demo)
-- [🎯 What is PayMint?](#-what-is-paymint)
-- [💡 The Problem](#-the-problem)
-- [✨ The Solution](#-the-solution)
-- [🚀 Key Features](#-key-features)
-- [🏗️ Architecture](#-architecture)
-- [🛠️ Tech Stack](#-tech-stack)
-- [📁 Project Structure](#-project-structure)
-- [📱 Frontend Features](#-frontend-features)
-- [🔗 API Endpoints](#-api-endpoints)
-- [💰 x402 Protocol & Machine Payments](#-x402-protocol--machine-payments)
-- [⚡ Quick Start](#-quick-start)
-- [📝 Environment Variables](#-environment-variables)
-- [🧪 Testing on Stellar Testnet](#-testing-on-stellar-testnet)
-- [📚 Documentation](#-documentation)
-- [🙏 Acknowledgments](#-acknowledgments)
-- [📄 License](#-license)
+- [Live Demo](#-live-demo)
+- [What is PayMint?](#-what-is-paymint)
+- [The Problem](#-the-problem)
+- [The Solution](#-the-solution)
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Frontend Features](#-frontend-features)
+- [API Endpoints](#-api-endpoints)
+- [x402 Protocol & Machine Payments](#-x402-protocol--machine-payments)
+- [Quick Start](#-quick-start)
+- [Environment Variables](#-environment-variables)
+- [Testing on Stellar Testnet](#-testing-on-stellar-testnet)
+- [Documentation](#-documentation)
+- [Acknowledgments](#-acknowledgments)
+- [License](#-license)
 
 ---
 
-## 🚀 Live Demo
+## Live Demo
 
 Try PayMint live at: **[https://pay-mint-web.vercel.app/](https://pay-mint-web.vercel.app/)**
 
 ---
 
-## 🎯 What is PayMint?
+## What is PayMint?
 
 PayMint is a **decentralized marketplace** that enables AI agents to:
 
@@ -62,7 +62,7 @@ Think of it as a **"AWS Lambda for AI Agents"** - but with built-in payment infr
 
 ---
 
-## 💡 The Problem
+## The Problem
 
 AI agents can reason, plan, and act, but they hit a hard stop when it comes to:
 
@@ -75,7 +75,7 @@ Current infrastructure assumes humans are the only economic actors. PayMint chan
 
 ---
 
-## ✨ The Solution
+## The Solution
 
 PayMint uses **x402 on Stellar** to turn every HTTP request into a paid interaction:
 
@@ -88,7 +88,7 @@ This creates a **self-sustaining agent economy** where AI services can be discov
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 | Feature                 | Description                                                                       |
 | ----------------------- | --------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ This creates a **self-sustaining agent economy** where AI services can be discov
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -134,7 +134,7 @@ This creates a **self-sustaining agent economy** where AI services can be discov
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer               | Technology                         |
 | ------------------- | ---------------------------------- |
@@ -149,7 +149,7 @@ This creates a **self-sustaining agent economy** where AI services can be discov
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 PayMint/
@@ -200,7 +200,7 @@ PayMint/
 
 ---
 
-## 📱 Frontend Features
+## Frontend Features
 
 ### Pages Overview
 
@@ -236,7 +236,7 @@ PayMint/
 
 ---
 
-## 🔗 API Endpoints
+## API Endpoints
 
 ### Agents API
 
@@ -285,7 +285,7 @@ PayMint/
 
 ---
 
-## 💰 x402 Protocol & Machine Payments
+## x402 Protocol & Machine Payments
 
 The x402 protocol enables HTTP requests to include payment headers for micropayments. PayMint implements this with:
 
@@ -376,7 +376,7 @@ npm run dev
 
 ---
 
-## 📝 Environment Variables
+## Environment Variables
 
 ### Backend (apps/api)
 
@@ -410,7 +410,7 @@ NEXT_PUBLIC_STELLAR_NETWORK=testnet
 
 ---
 
-## 🧪 Testing on Stellar Testnet
+## Testing on Stellar Testnet
 
 1. Install [Freighter Wallet](https://www.freighter.app/) browser extension
 2. Create a new account and switch to Testnet mode in Freighter settings
@@ -443,7 +443,7 @@ Without testnet funds, you cannot register agents or make test payments.
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 For more detailed technical documentation, see:
 
@@ -452,7 +452,7 @@ For more detailed technical documentation, see:
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Stellar Development Foundation](https://www.stellar.org/)
 - [x402 Protocol](https://x402.org/)
@@ -461,7 +461,7 @@ For more detailed technical documentation, see:
 
 ---
 
-## 📄 License
+## License
 
 MIT License - feel free to use this project for your own implementations.
 

@@ -92,7 +92,6 @@ export default function EscrowPage() {
 
   const completedEscrows = userEscrows.filter(p => p.status === 'COMPLETED');
   const refundedEscrows = userEscrows.filter(p => p.status === 'REFUNDED');
-  const cancelledEscrows = userEscrows.filter(p => p.status === 'CANCELLED');
   const disputedEscrows = userEscrows.filter(p => p.status === 'DISPUTED');
   
   const totalInEscrow = pendingEscrows.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
@@ -466,14 +465,14 @@ export default function EscrowPage() {
         /* Stats */
         .stats-grid {
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 12px;
           margin-bottom: 24px;
         }
 
         @media (max-width: 1200px) {
           .stats-grid {
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
           }
         }
 
@@ -1169,21 +1168,21 @@ export default function EscrowPage() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon pending">
-            <Clock size={28} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">PENDING ESCROWS</div>
-            <div className="stat-value warning">${totalInEscrow.toFixed(2)}</div>
-          </div>
-        </div>
-        <div className="stat-card">
           <div className="stat-icon escrow">
             <ShieldCheck size={28} />
           </div>
           <div className="stat-content">
-            <div className="stat-label">ACTIVE ESCROWS</div>
-            <div className="stat-value accent">{pendingEscrows.length}</div>
+            <div className="stat-label">IN ESCROW</div>
+            <div className="stat-value accent">${totalInEscrow.toFixed(2)}</div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon released">
+            <AlertCircle size={28} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-label">DISPUTED</div>
+            <div className="stat-value" style={{ color: '#ff00ff' }}>${disputedEscrows.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)}</div>
           </div>
         </div>
         <div className="stat-card">
@@ -1204,15 +1203,6 @@ export default function EscrowPage() {
             <div className="stat-value" style={{ color: '#ff6b6b' }}>${totalRefunded.toFixed(2)}</div>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon escrow">
-            <XCircle size={28} />
-          </div>
-          <div className="stat-content">
-            <div className="stat-label">CANCELLED</div>
-            <div className="stat-value" style={{ color: 'var(--muted)' }}>{cancelledEscrows.length}</div>
-          </div>
-        </div>
       </div>
 
       <div className="filters-row">
@@ -1223,16 +1213,10 @@ export default function EscrowPage() {
           All ({userEscrows.length})
         </button>
         <button 
-          className={`filter-btn ${filterStatus === 'PENDING' ? 'active' : ''}`}
-          onClick={() => setFilterStatus('PENDING')}
-        >
-          Pending ({pendingEscrows.length})
-        </button>
-        <button 
           className={`filter-btn ${filterStatus === 'ESCROW_CREATED' ? 'active' : ''}`}
           onClick={() => setFilterStatus('ESCROW_CREATED')}
         >
-          In Escrow ({pendingEscrows.filter(p => p.status === 'ESCROW_CREATED').length})
+          In Escrow ({userEscrows.filter(p => p.status === 'ESCROW_CREATED').length})
         </button>
         <button 
           className={`filter-btn ${filterStatus === 'COMPLETED' ? 'active' : ''}`}
@@ -1263,12 +1247,6 @@ export default function EscrowPage() {
           onClick={() => setFilterStatus('DISPUTED')}
         >
           Disputed ({disputedEscrows.length})
-        </button>
-        <button 
-          className={`filter-btn ${filterStatus === 'CANCELLED' ? 'active' : ''}`}
-          onClick={() => setFilterStatus('CANCELLED')}
-        >
-          Cancelled ({cancelledEscrows.length})
         </button>
       </div>
 

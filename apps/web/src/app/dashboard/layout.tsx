@@ -44,8 +44,6 @@ export default function DashboardLayout({ children }: LayoutProps) {
   const pathname = usePathname();
   const { address, isConnected, loading } = useStellar();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [agents, setAgents] = useState<any[]>([]);
-  const [currentAgent, setCurrentAgent] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -71,28 +69,10 @@ export default function DashboardLayout({ children }: LayoutProps) {
 
   useEffect(() => {
     if (isConnected && address) {
-      fetchUserAgents();
       fetchNotifications();
     }
   }, [isConnected, address]);
 
-  const fetchUserAgents = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/address/${address}`);
-      if (res.ok) {
-        const agentsData = await res.json();
-        // The API returns an array of agents
-        const agentsList = Array.isArray(agentsData) ? agentsData : [agentsData];
-        setAgents(agentsList);
-        // Set the first agent as current for sidebar display
-        if (agentsList.length > 0) {
-          setCurrentAgent(agentsList[0]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch agents:', err);
-    }
-  };
 
   const fetchNotifications = async () => {
     if (!address) return;
@@ -526,117 +506,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
           border-radius: 3px;
         }
 
-        .agent-chip {
-          background: var(--surface2);
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          padding: 10px 12px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          cursor: pointer;
-        }
 
-        .agent-avatar {
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-light));
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          font-weight: 700;
-          color: white;
-          flex-shrink: 0;
-          box-shadow: 0 0 15px rgba(168,85,247,0.3);
-        }
-
-        .agent-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .agent-name {
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--text);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .agent-status {
-          font-family: var(--mono);
-          font-size: 9px;
-          color: var(--accent3);
-        }
-
-        .sidebar-footer {
-          margin-top: auto;
-          padding: 16px;
-          border-top: 1px solid var(--border);
-        }
-
-        .current-agent {
-          background: var(--surface2);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 12px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          cursor: pointer;
-        }
-
-        .current-agent:hover {
-          border-color: var(--border2);
-        }
-
-        .current-agent {
-          background: var(--surface2);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 12px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          cursor: pointer;
-        }
-
-        .agent-avatar {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, var(--accent2), var(--accent));
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          font-weight: 700;
-          color: white;
-          flex-shrink: 0;
-        }
-
-        .agent-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .agent-name {
-          font-size: 12px;
-          font-weight: 700;
-          color: var(--text);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .agent-status {
-          font-family: var(--mono);
-          font-size: 9px;
-          color: var(--accent3);
-        }
 
         .dashboard-main {
           position: fixed;
@@ -1149,10 +1019,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
           ))}
           
 
-        {sidebarOpen && (
-            <div className="sidebar-footer">
-            </div>
-          )}
+
         </nav>
 
         {/* Main Content */}
