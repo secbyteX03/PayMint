@@ -93,6 +93,8 @@ model Payment {
   transactionHash  String?   // Stellar transaction hash
   escrowId         String?   // Escrow ID
   refundReason     String?   // Reason for refund request
+  disputeReason   String?   // Reason for dispute
+  disputeOpenedAt  DateTime? // When dispute was opened
   
   // Timestamps
   createdAt        DateTime  @default(now())

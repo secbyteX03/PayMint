@@ -89,6 +89,10 @@ CREATE TABLE IF NOT EXISTS payments (
     "refundReason" TEXT,
     "refund_reason" TEXT,
     
+    -- Dispute tracking columns
+    "disputeOpenedAt" TIMESTAMP WITH TIME ZONE,
+    "disputeReason" TEXT,
+    
     -- Timestamps
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -131,12 +135,12 @@ CREATE TABLE IF NOT EXISTS reviews (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    userAddress VARCHAR(256) NOT NULL,
+    "userAddress" VARCHAR(256) NOT NULL,
     type VARCHAR(64) NOT NULL,
     title VARCHAR(256) NOT NULL,
     message TEXT NOT NULL,
-    paymentId VARCHAR(256),
-    isRead BOOLEAN DEFAULT false,
+    "paymentId" VARCHAR(256),
+    "isRead" BOOLEAN DEFAULT false,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -176,6 +180,10 @@ CREATE INDEX IF NOT EXISTS idx_payments_status ON payments("status");
 CREATE INDEX IF NOT EXISTS idx_payments_buyer ON payments("buyerAddress");
 CREATE INDEX IF NOT EXISTS idx_payments_seller ON payments("sellerAddress");
 
+-- Dispute-specific indexes
+CREATE INDEX IF NOT EXISTS idx_payments_dispute_status ON payments(status) WHERE status = 'DISPUTED';
+CREATE INDEX IF NOT EXISTS idx_payments_dispute_opened ON payments("disputeOpenedAt") WHERE "disputeOpenedAt" IS NOT NULL;
+
 -- Transactions indexes
 CREATE INDEX IF NOT EXISTS idx_transactions_hash ON transactions(hash);
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
@@ -185,5 +193,5 @@ CREATE INDEX IF NOT EXISTS idx_reviews_agent ON reviews("agentId");
 CREATE INDEX IF NOT EXISTS idx_reviews_buyer ON reviews("buyerAddress");
 
 -- Notifications indexes
-CREATE INDEX IF NOT EXISTS idx_notifications_userAddress ON notifications(userAddress);
-CREATE INDEX IF NOT EXISTS idx_notifications_paymentId ON notifications(paymentId);
+CREATE INDEX IF NOT EXISTS idx_notifications_userAddress ON notifications("userAddress");
+CREATE INDEX IF NOT EXISTS idx_notifications_paymentId ON notifications("paymentId");
