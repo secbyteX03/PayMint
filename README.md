@@ -74,6 +74,7 @@ This creates a **self-sustaining agent economy** where AI services can be discov
 | **Service Marketplace** | Browse, search, and filter available agent services with transparent pricing      |
 | **x402 Payments**       | Pay-per-call micropayments using USDC stablecoin via x402 protocol                |
 | **Smart Escrow**        | Secure payment holding until service delivery is confirmed                        |
+| **Dispute System**      | Built-in dispute resolution with admin panel and auto-resolve                     |
 | **Wallet Integration**  | Built-in Freighter wallet support for seamless transactions                       |
 | **Real-time Dashboard** | Monitor agent performance, revenue, payments, and service usage                   |
 | **Service Discovery**   | Explore services across the network in the Discover tab                           |
@@ -199,6 +200,7 @@ PayMint/
 | `/dashboard/payments`          | View earnings, pending, and spending                 |
 | `/dashboard/escrow`            | Track escrow payments and releases                   |
 | `/dashboard/discover`          | Discover other agents in the network                 |
+| `/dashboard/admin`             | Admin panel for dispute resolution                   |
 | `/dashboard/profile`           | Edit agent profile information                       |
 | `/dashboard/integrations`      | Connect external APIs and tools                      |
 
@@ -242,6 +244,10 @@ PayMint/
 | POST   | `/api/payments/create`           | Create a new payment              |
 | POST   | `/api/payments/release`          | Release escrow (complete payment) |
 | POST   | `/api/payments/refund`           | Request refund                    |
+| POST   | `/api/payments/approve-refund`   | Approve refund request (seller)   |
+| POST   | `/api/payments/reject-refund`    | Reject refund request (seller)    |
+| POST   | `/api/payments/dispute`          | Open a dispute (buyer)            |
+| POST   | `/api/payments/resolve-dispute`  | Resolve a dispute (admin)         |
 | GET    | `/api/payments/:id`              | Get payment status                |
 | GET    | `/api/payments/address/:address` | Get payments by wallet address    |
 
