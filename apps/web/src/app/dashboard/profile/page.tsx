@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStellar } from '@/context/StellarContext';
+import { Copy, Check } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { address, network, disconnect } = useStellar();
   const [displayAgents, setDisplayAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (address) {
@@ -38,6 +40,18 @@ export default function ProfilePage() {
   const displayAddress = address ? 
     `${address.slice(0, 6)}...${address.slice(-4)}` : 
     'Not connected';
+
+  const copyAddress = async () => {
+    if (address) {
+      try {
+        await navigator.clipboard.writeText(address);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -133,6 +147,34 @@ export default function ProfilePage() {
         }
 
         .wi-value.green {
+          color: #00ff9d;
+        }
+
+        .wi-address-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .copy-btn {
+          background: transparent;
+          border: none;
+          color: var(--muted);
+          cursor: pointer;
+          padding: 4px;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+          color: var(--accent);
+          background: var(--surface2);
+        }
+
+        .copy-btn.copied {
           color: #00ff9d;
         }
 
@@ -252,7 +294,12 @@ export default function ProfilePage() {
         <div style={{ padding: '20px 0' }}>
           <div className="wallet-info-row">
             <span className="wi-label">Address</span>
-            <span className="wi-value green">{displayAddress}</span>
+            <div className="wi-address-container">
+              <span className="wi-value green">{displayAddress}</span>
+              <button className="copy-btn" onClick={copyAddress} title="Copy full address">
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+            </div>
           </div>
           <div className="wallet-info-row">
             <span className="wi-label">Network</span>

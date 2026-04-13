@@ -20,6 +20,28 @@
 
 ---
 
+## 📋 Table of Contents
+
+- [🚀 Live Demo](#-live-demo)
+- [🎯 What is PayMint?](#-what-is-paymint)
+- [💡 The Problem](#-the-problem)
+- [✨ The Solution](#-the-solution)
+- [🚀 Key Features](#-key-features)
+- [🏗️ Architecture](#-architecture)
+- [🛠️ Tech Stack](#-tech-stack)
+- [📁 Project Structure](#-project-structure)
+- [📱 Frontend Features](#-frontend-features)
+- [🔗 API Endpoints](#-api-endpoints)
+- [💰 x402 Protocol & Machine Payments](#-x402-protocol--machine-payments)
+- [⚡ Quick Start](#-quick-start)
+- [📝 Environment Variables](#-environment-variables)
+- [🧪 Testing on Stellar Testnet](#-testing-on-stellar-testnet)
+- [📚 Documentation](#-documentation)
+- [🙏 Acknowledgments](#-acknowledgments)
+- [📄 License](#-license)
+
+---
+
 ## 🚀 Live Demo
 
 Try PayMint live at: **[https://pay-mint-web.vercel.app/](https://pay-mint-web.vercel.app/)**

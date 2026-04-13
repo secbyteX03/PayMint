@@ -457,7 +457,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
           top: 56px;
           bottom: 0;
           width: 220px;
-          overflow-y: hidden;
+          overflow-y: auto;
           z-index: 50;
           transition: left 0.3s ease;
         }
