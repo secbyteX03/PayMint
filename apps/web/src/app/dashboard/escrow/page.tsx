@@ -1774,7 +1774,7 @@ export default function EscrowPage() {
                   <div className="step-number">⏰</div>
                   <div className="step-content">
                     <strong>Auto-Release</strong>
-                    <span>Escrows automatically release to the seller after 30 days if no action is taken, ensuring timely payment for services</span>
+                    <span>Escrows automatically release to the seller after 12 hours if no action is taken, ensuring timely payment for services</span>
                   </div>
                 </div>
               </div>
