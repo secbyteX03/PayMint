@@ -72,7 +72,7 @@ export default function NewAgentPage() {
           webhookUrl: agentData.webhookUrl || undefined,
           documentationUrl: agentData.documentationUrl || undefined,
           logoUrl: agentData.logoUrl || undefined,
-          capabilities: agentData.capabilities || undefined,
+          capabilities: agentData.capabilities ? agentData.capabilities.split(',').map(c => c.trim()).filter(c => c) : undefined,
           pricingModel: agentData.pricingModel,
           pricePerCall: agentData.pricePerCall ? parseFloat(agentData.pricePerCall) : undefined,
           websiteUrl: agentData.websiteUrl || undefined,
@@ -374,6 +374,21 @@ export default function NewAgentPage() {
                   onChange={(e) => setAgentData({ ...agentData, name: e.target.value })}
                 />
               </div>
+              <div className="form-group">
+                <label className="form-label">Logo URL</label>
+                <div className="input-icon">
+                  <Image size={14} className="input-icon-left" />
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="https://example.com/logo.png"
+                    value={agentData.logoUrl}
+                    onChange={(e) => setAgentData({ ...agentData, logoUrl: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Support Email</label>
                 <div className="input-icon">

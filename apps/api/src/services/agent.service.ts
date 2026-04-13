@@ -42,8 +42,9 @@ export class AgentService {
       name,
     };
     
-    // Add all provided fields
-    if (description) insertData.description = description;
+    // Add all provided fields (trim newlines and whitespace)
+    console.log('Registering agent with description:', JSON.stringify(description));
+    if (description) insertData.description = description.trim();
     if (apiEndpoint) insertData.apiEndpoint = apiEndpoint;
     if (webhookUrl) insertData.webhookUrl = webhookUrl;
     if (documentationUrl) insertData.documentationUrl = documentationUrl;
@@ -84,7 +85,7 @@ export class AgentService {
       // Update with remaining fields
       if (newAgent) {
         const updateData: any = {};
-        if (description) updateData.description = description;
+        if (description && description.trim()) updateData.description = description.trim();
         if (apiEndpoint) updateData.apiEndpoint = apiEndpoint;
         if (webhookUrl) updateData.webhookUrl = webhookUrl;
         if (documentationUrl) updateData.documentationUrl = documentationUrl;

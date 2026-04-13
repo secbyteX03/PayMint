@@ -56,8 +56,14 @@ export default function EditAgentPage() {
   const fetchAgent = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agentId}`);
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      
+      if (res.ok && data) {
+        // Handle capabilities as array - join to string for form display
+        const capabilitiesValue = Array.isArray(data.capabilities) 
+          ? data.capabilities.join(', ') 
+          : (data.capabilities || '');
+        
         setAgentData({
           name: data.name || '',
           description: data.description || '',
@@ -67,16 +73,20 @@ export default function EditAgentPage() {
           webhookUrl: data.webhookUrl || '',
           documentationUrl: data.documentationUrl || '',
           logoUrl: data.logoUrl || '',
-          capabilities: data.capabilities || '',
+          capabilities: capabilitiesValue,
           pricingModel: data.pricingModel || 'PER_CALL',
           pricePerCall: data.pricePerCall?.toString() || '',
           websiteUrl: data.websiteUrl || '',
           termsOfServiceUrl: data.termsOfServiceUrl || '',
         });
+        setError('');
+      } else {
+        console.error('Agent not found or error:', data.error);
+        setError(data.error || 'Agent not found');
       }
     } catch (err) {
       console.error('Failed to fetch agent:', err);
-      setError('Failed to load agent');
+      setError('Failed to load agent. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -92,6 +102,11 @@ export default function EditAgentPage() {
     setError('');
 
     try {
+      // Convert capabilities string to array if provided
+      const capabilitiesArray = agentData.capabilities 
+        ? agentData.capabilities.split(',').map(c => c.trim()).filter(c => c)
+        : undefined;
+        
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agents/${agentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -104,7 +119,7 @@ export default function EditAgentPage() {
           webhookUrl: agentData.webhookUrl || undefined,
           documentationUrl: agentData.documentationUrl || undefined,
           logoUrl: agentData.logoUrl || undefined,
-          capabilities: agentData.capabilities || undefined,
+          capabilities: capabilitiesArray || undefined,
           pricingModel: agentData.pricingModel,
           pricePerCall: agentData.pricePerCall ? parseFloat(agentData.pricePerCall) : undefined,
           websiteUrl: agentData.websiteUrl || undefined,
@@ -392,6 +407,11 @@ export default function EditAgentPage() {
               {error}
             </div>
           )}
+          {!loading && !error && !agentData.name && (
+            <div className="error-message">
+              No agent data loaded. Please try refreshing the page.
+            </div>
+          )}
 
           <div className="form-section">
             <h3 className="section-title">Basic Information</h3>
@@ -406,6 +426,21 @@ export default function EditAgentPage() {
                   onChange={(e) => setAgentData({ ...agentData, name: e.target.value })}
                 />
               </div>
+              <div className="form-group">
+                <label className="form-label">Logo URL</label>
+                <div className="input-icon">
+                  <Image size={14} className="input-icon-left" />
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="https://example.com/logo.png"
+                    value={agentData.logoUrl}
+                    onChange={(e) => setAgentData({ ...agentData, logoUrl: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Support Email</label>
                 <div className="input-icon">
@@ -487,21 +522,6 @@ export default function EditAgentPage() {
                     placeholder="https://docs.example.com"
                     value={agentData.documentationUrl}
                     onChange={(e) => setAgentData({ ...agentData, documentationUrl: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label className="form-label">Logo URL</label>
-                <div className="input-icon">
-                  <Image size={14} className="input-icon-left" />
-                  <input
-                    type="url"
-                    className="form-input"
-                    placeholder="https://example.com/logo.png"
-                    value={agentData.logoUrl}
-                    onChange={(e) => setAgentData({ ...agentData, logoUrl: e.target.value })}
                   />
                 </div>
               </div>
