@@ -1721,17 +1721,6 @@ export default function EscrowPage() {
             </div>
 
             <div className="help-section">
-              <h3><XCircle size={18} /> Cancel Payment</h3>
-              <p>
-                <strong>When to use:</strong> Only available for PENDING payments.
-              </p>
-              <p style={{ marginTop: '8px' }}>
-                Use this to cancel a transaction that hasn't been funded yet. Funds have not been sent 
-                to the escrow wallet, so this is a simple cancellation without any financial risk.
-              </p>
-            </div>
-
-            <div className="help-section">
               <h3><RefreshCw size={18} /> Request Refund</h3>
               <p>
                 <strong>When to use:</strong> Only available for ESCROW_CREATED (In Escrow) payments.
