@@ -20,7 +20,7 @@ import { useStellar } from '@/context/StellarContext';
 
 export default function DiscoverPage() {
   const router = useRouter();
-  const { address, isConnected } = useStellar();
+  const { address, isConnected, signAndSubmitTransaction } = useStellar();
   const [agents, setAgents] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,7 +172,7 @@ export default function DiscoverPage() {
       
       if (!confirmed) return;
 
-      // Create escrow payment record (no XLM transferred yet)
+      // Create escrow payment record first
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,32 +184,67 @@ export default function DiscoverPage() {
         }),
       });
 
-
-      if (res.ok) {
-        const payment = await res.json();
-        
-        // Dispatch notification for escrow creation
-        window.dispatchEvent(new CustomEvent('add-notification', {
-          detail: {
-            message: `Escrow created: ${service.pricePerCall} XLM for ${service.name}`,
-            type: 'success',
-            timestamp: new Date().toISOString()
-          }
-        }));
-
-        alert(
-          `Escrow created successfully!\n\n` +
-          `Escrow ID: ${payment.id}\n` +
-          `Amount: ${service.pricePerCall} XLM\n\n` +
-          `Go to Escrow tab to release funds once the service is delivered.`
-        );
-        
-        // Refresh the page to show new payment
-        router.refresh();
-      } else {
+      if (!res.ok) {
         const data = await res.json();
         alert(`Failed to create escrow: ${data.error}`);
+        return;
       }
+
+      const payment = await res.json();
+      
+      // Build transaction to send funds to escrow (no confirmation dialog - just proceed)
+      console.log('Building escrow lock transaction for', service.pricePerCall, 'XLM');
+      
+      const buildRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/stellar/escrow/lock`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: address,
+            amount: service.pricePerCall.toString(),
+            asset: 'XLM',
+          }),
+        }
+      );
+
+      if (!buildRes.ok) {
+        const errData = await buildRes.json();
+        alert(`Failed to build transaction: ${errData.error}`);
+        return;
+      }
+
+      const { transactionXdr } = await buildRes.json();
+      console.log('Transaction XDR received, requesting signature from Freighter...');
+
+      // Sign and submit using Freighter - this should trigger the popup
+      const result = await signAndSubmitTransaction(transactionXdr);
+
+      if (!result) {
+        alert('Transaction was cancelled or failed. You can try again.');
+        router.refresh();
+        return;
+      }
+      
+      // Dispatch notification for escrow creation with funds locked
+      window.dispatchEvent(new CustomEvent('add-notification', {
+        detail: {
+          message: `Funds locked in escrow: ${service.pricePerCall} XLM for ${service.name}`,
+          type: 'success',
+          timestamp: new Date().toISOString()
+        }
+      }));
+
+      alert(
+        `Escrow created and funds locked successfully!\n\n` +
+        `Escrow ID: ${payment.id}\n` +
+        `Amount: ${service.pricePerCall} XLM\n` +
+        `Transaction: ${result.hash.slice(0, 12)}...\n\n` +
+        `Go to Escrow tab to release funds once the service is delivered.`
+      );
+      
+      // Refresh the page to show new payment
+      router.refresh();
     } catch (err: any) {
       console.error('Failed to create escrow:', err);
       alert(`Error: ${err.message}`);

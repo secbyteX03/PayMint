@@ -1979,6 +1979,12 @@ export default function DashboardPage() {
           <button className="btn btn-primary" onClick={() => handleReleaseEscrow('All Escrows')}>Release All</button>
         </div>
       </div>
+
+      <div style={{ marginTop: '20px', textAlign: 'center' }}>
+        <a href="/dashboard/escrow" className="btn btn-secondary" style={{ padding: '12px 24px', fontSize: '14px' }}>
+          Go to Full Escrow Management →
+        </a>
+      </div>
     </>
   );
 

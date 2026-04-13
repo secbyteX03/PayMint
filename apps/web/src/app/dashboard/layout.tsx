@@ -125,6 +125,18 @@ export default function DashboardLayout({ children }: LayoutProps) {
     { icon: User, label: 'Profile', href: '/dashboard/profile' },
   ];
 
+  // Admin wallet address for special privileges
+  const ADMIN_WALLET = 'GDJTYETYSDM4VFX4RYGTCXYMLXSGQODKGGFUBMR4INGFMXOWROGKMIIR';
+  const isAdmin = address?.toUpperCase() === ADMIN_WALLET?.toUpperCase();
+
+  // Add Admin section if user is admin
+  if (isAdmin) {
+    navItems.push(
+      { section: 'ADMIN', icon: null, label: '', href: '' },
+      { icon: ShieldCheck, label: 'Admin Panel', href: '/dashboard/admin' }
+    );
+  }
+
   const isActive = (href: string) => {
     if (href === '/dashboard') {
       return pathname === '/dashboard';
