@@ -1,5 +1,11 @@
 {
   "buildCommand": "npm install && npm run build",
   "outputDirectory": "dist",
-  "framework": null
+  "framework": null,
+  "crons": [
+    {
+      "path": "/api/cron/auto-release",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

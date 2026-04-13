@@ -38,6 +38,7 @@ export default function EscrowPage() {
   const [showRefundConfirm, setShowRefundConfirm] = useState<string | null>(null);
   const [showDisputeConfirm, setShowDisputeConfirm] = useState<string | null>(null);
   const [showResolveDisputeConfirm, setShowResolveDisputeConfirm] = useState<string | null>(null);
+  const [showRefundReason, setShowRefundReason] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
@@ -1294,6 +1295,27 @@ export default function EscrowPage() {
                         ) : (
                           <span style={{ color: '#ff9500', fontSize: '12px' }}>
                             ⚠️ <strong>Buyer has requested a refund</strong> - Please review and approve or reject
+                            {escrow.refundReason && (
+                              <button 
+                                onClick={() => setShowRefundReason(showRefundReason === escrow.id ? null : escrow.id)}
+                                style={{ 
+                                  marginLeft: '8px', 
+                                  background: 'none', 
+                                  border: 'none', 
+                                  color: '#ff9500', 
+                                  textDecoration: 'underline', 
+                                  cursor: 'pointer',
+                                  fontSize: '12px'
+                                }}
+                              >
+                                [Click here to see the reason]
+                              </button>
+                            )}
+                            {showRefundReason === escrow.id && escrow.refundReason && (
+                              <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(255,149,0,0.1)', borderRadius: '4px', fontSize: '12px' }}>
+                                <strong>Reason:</strong> {escrow.refundReason}
+                              </div>
+                            )}
                           </span>
                         )}
                       </div>

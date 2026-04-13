@@ -14,9 +14,14 @@ import { notificationRoutes } from './routes/notification.routes';
 import { webhookService } from './services/webhook.service';
 import { errorHandler } from './middleware/errorHandler';
 import { connectDatabase, supabase } from './config/database';
+import { escrowService } from './services/escrow.service';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
+const ESCROW_TIMEOUT_HOURS = 12; // Auto-release after 12 hours
+
+// Only run auto-release interval in development (not on Vercel serverless)
+const isDev = process.env.NODE_ENV !== 'production';
 
 // Middleware
 app.use(helmet());
@@ -119,6 +124,23 @@ app.use('/api/stellar', stellarRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+// Cron job endpoint for auto-release (called by Vercel Cron)
+app.post('/api/cron/auto-release', async (req: Request, res: Response) => {
+  try {
+    // Verify cron secret for security
+    const cronSecret = req.headers['x-cron-secret'];
+    if (cronSecret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    await checkAndAutoReleaseEscrows();
+    res.json({ success: true, message: 'Auto-release check completed' });
+  } catch (error) {
+    console.error('Cron auto-release error:', error);
+    res.status(500).json({ error: 'Auto-release check failed' });
+  }
+});
+
 // Error handling
 app.use(errorHandler);
 
@@ -131,6 +153,16 @@ async function startServer() {
     // Load webhooks from database into memory
     await webhookService.loadWebhooksFromDatabase();
 
+    // Start auto-release check interval (every 5 minutes) - only in development
+    if (isDev) {
+      setInterval(async () => {
+        await checkAndAutoReleaseEscrows();
+      }, 5 * 60 * 1000);
+      
+      // Run initial check on startup
+      await checkAndAutoReleaseEscrows();
+    }
+
     app.listen(PORT, () => {
       console.log(`AgentPay API running on port ${PORT}`);
       console.log(`Stellar Network: ${process.env.STELLAR_NETWORK || 'testnet'}`);
@@ -142,5 +174,75 @@ async function startServer() {
 }
 
 startServer();
+
+// Auto-release escrows that have been in ESCROW_CREATED status for more than X hours
+async function checkAndAutoReleaseEscrows() {
+  try {
+    console.log('[Auto-Release] Checking for escrows to auto-release...');
+    
+    const twelveHoursAgo = new Date(Date.now() - ESCROW_TIMEOUT_HOURS * 60 * 60 * 1000).toISOString();
+    
+    // Find payments that have been in ESCROW_CREATED status for more than 12 hours
+    // Exclude payments that have refund requests or disputes
+    const { data: staleEscrows, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('status', 'ESCROW_CREATED')
+      .lt('createdAt', twelveHoursAgo);
+    
+    if (error) {
+      console.error('[Auto-Release] Error fetching stale escrows:', error);
+      return;
+    }
+    
+    if (!staleEscrows || staleEscrows.length === 0) {
+      console.log('[Auto-Release] No escrows to auto-release');
+      return;
+    }
+    
+    console.log(`[Auto-Release] Found ${staleEscrows.length} escrows to auto-release`);
+    
+    for (const payment of staleEscrows) {
+      try {
+        // Release funds to seller
+        const result = await escrowService.signAndSubmitEscrowTransaction(
+          payment.sellerAddress,
+          payment.amount.toString(),
+          payment.currency || 'XLM'
+        );
+        
+        if (result.success) {
+          // Update payment status to COMPLETED
+          await supabase
+            .from('payments')
+            .update({ status: 'COMPLETED' })
+            .eq('id', payment.id);
+          
+          // Create notification for buyer
+          await supabase.from('notifications').insert({
+            userAddress: payment.buyerAddress,
+            type: 'AUTO_RELEASE',
+            title: 'Payment Auto-Released',
+            message: `Your payment of ${payment.amount} ${payment.currency || 'XLM'} has been automatically released to the seller after 12 hours.`
+          });
+          
+          // Create notification for seller
+          await supabase.from('notifications').insert({
+            userAddress: payment.sellerAddress,
+            type: 'PAYMENT_RECEIVED',
+            title: 'Payment Received',
+            message: `You received ${payment.amount} ${payment.currency || 'XLM'} from an auto-released escrow.`
+          });
+          
+          console.log(`[Auto-Release] Successfully auto-released payment ${payment.id} to ${payment.sellerAddress}`);
+        }
+      } catch (releaseError) {
+        console.error(`[Auto-Release] Failed to release payment ${payment.id}:`, releaseError);
+      }
+    }
+  } catch (error) {
+    console.error('[Auto-Release] Error in auto-release check:', error);
+  }
+}
 
 export default app;
