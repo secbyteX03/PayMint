@@ -1669,9 +1669,9 @@ export default function EscrowPage() {
             <div className="help-section">
               <h3><ShieldCheck size={18} /> What is Escrow?</h3>
               <p>
-                Escrow is a secure payment method where your money is held by a smart contract 
+                Escrow is a secure payment method where your money is held in a dedicated escrow wallet 
                 until the service is delivered. This protects both buyers and sellers from fraud 
-                and ensures trustworthy transactions.
+                and ensures trustworthy transactions on the Stellar blockchain.
               </p>
             </div>
 
@@ -1688,8 +1688,8 @@ export default function EscrowPage() {
                 <div className="help-step">
                   <div className="step-number">2</div>
                   <div className="step-content">
-                    <strong>Smart Contract Created</strong>
-                    <span>Payment held securely in ESCROW_CREATED status</span>
+                    <strong>Funds Secured in Escrow</strong>
+                    <span>Payment held securely in ESCROW_CREATED status via Stellar escrow wallet</span>
                   </div>
                 </div>
                 <div className="help-step">
@@ -1712,11 +1712,11 @@ export default function EscrowPage() {
             <div className="help-section">
               <h3><CheckCircle size={18} /> Release Payment</h3>
               <p>
-                <strong>When to use:</strong> Only available for ESCROW_CREATED (In Escrow) payments where funds are locked in the smart contract.
+                <strong>When to use:</strong> Only available for ESCROW_CREATED (In Escrow) payments where funds are locked in the escrow wallet.
               </p>
               <p style={{ marginTop: '8px' }}>
                 Click RELEASE when you're satisfied with the service and want to send the funds to the seller. 
-                This completes the transaction and releases the locked funds from the smart contract.
+                This completes the transaction and releases the locked funds from the escrow wallet.
               </p>
             </div>
 
@@ -1726,8 +1726,8 @@ export default function EscrowPage() {
                 <strong>When to use:</strong> Only available for PENDING payments.
               </p>
               <p style={{ marginTop: '8px' }}>
-                Use this to cancel a transaction that hasn't been processed yet. Funds are not yet locked 
-                in the smart contract, so this is a simple cancellation without any financial risk.
+                Use this to cancel a transaction that hasn't been funded yet. Funds have not been sent 
+                to the escrow wallet, so this is a simple cancellation without any financial risk.
               </p>
             </div>
 
@@ -1737,8 +1737,8 @@ export default function EscrowPage() {
                 <strong>When to use:</strong> Only available for ESCROW_CREATED (In Escrow) payments.
               </p>
               <p style={{ marginTop: '8px' }}>
-                Request a refund if there's an issue with the service. <strong>The seller must approve</strong> 
-                before funds are returned. If the seller rejects, you can open a dispute.
+                Request a refund if there's an issue with the service. You must provide a reason for the refund request. 
+                <strong>The seller must approve</strong> before funds are returned. If the seller rejects, you can open a dispute.
               </p>
             </div>
 
@@ -1755,31 +1755,37 @@ export default function EscrowPage() {
             </div>
 
             <div className="help-section">
-              <h3><FileText size={18} /> Smart Contract Security</h3>
+              <h3><FileText size={18} /> Escrow Security</h3>
               <p>
-                Each escrow is protected by a <strong>Stellar Soroban smart contract</strong> that automatically 
-                enforces the payment rules:
+                Each escrow is protected by a <strong>Stellar escrow wallet</strong> that securely holds funds until release or refund:
               </p>
               <div className="help-steps" style={{ marginTop: '12px' }}>
                 <div className="help-step">
                   <div className="step-number">🔒</div>
                   <div className="step-content">
-                    <strong>Funds Locked</strong>
-                    <span>Once payment enters ESCROW_CREATED status, funds are locked in the contract and cannot be accessed by anyone</span>
+                    <strong>Funds Secured</strong>
+                    <span>Once payment enters ESCROW_CREATED status, funds are locked in the escrow wallet and cannot be accessed by anyone until released</span>
                   </div>
                 </div>
                 <div className="help-step">
                   <div className="step-number">⚡</div>
                   <div className="step-content">
-                    <strong>Automatic Execution</strong>
-                    <span>Release and refund operations are executed automatically by the smart contract once authorized</span>
+                    <strong>Automatic Release</strong>
+                    <span>Release and refund operations are executed automatically via Stellar transactions once authorized</span>
                   </div>
                 </div>
                 <div className="help-step">
                   <div className="step-number">🛡️</div>
                   <div className="step-content">
                     <strong>Transparent & Trustless</strong>
-                    <span>No middleman needed - the contract ensures both parties fulfill their obligations</span>
+                    <span>No middleman needed - the escrow system ensures both parties fulfill their obligations</span>
+                  </div>
+                </div>
+                <div className="help-step">
+                  <div className="step-number">⏰</div>
+                  <div className="step-content">
+                    <strong>Auto-Release</strong>
+                    <span>Escrows automatically release to the seller after 30 days if no action is taken, ensuring timely payment for services</span>
                   </div>
                 </div>
               </div>
