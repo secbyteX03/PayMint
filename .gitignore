@@ -49,3 +49,6 @@ Cargo.lock
 
 # Images (keep heroimage.png if it's part of the project)
 # heroimage.png
+
+# Stellar secrets - NEVER commit
+.stellar/

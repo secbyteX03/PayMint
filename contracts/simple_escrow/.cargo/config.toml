@@ -1,0 +1,9 @@
+# Cargo configuration for Soroban WASM build
+
+[build]
+target = "wasm32v1-none"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1

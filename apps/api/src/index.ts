@@ -15,6 +15,7 @@ import { webhookService } from './services/webhook.service';
 import { errorHandler } from './middleware/errorHandler';
 import { connectDatabase, supabase } from './config/database';
 import { escrowService } from './services/escrow.service';
+import { sorobanEscrowService } from './services/soroban-escrow.service';
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
@@ -204,14 +205,29 @@ async function checkAndAutoReleaseEscrows() {
     
     for (const payment of staleEscrows) {
       try {
-        // Release funds to seller
+        // First, try to release via Soroban contract
+        let sorobanSuccess = false;
+        try {
+          const escrowSecret = process.env.ESCROW_SECRET;
+          if (escrowSecret) {
+            const { Keypair } = await import('@stellar/stellar-sdk');
+            const adminKeypair = Keypair.fromSecret(escrowSecret);
+            const sorobanResult = await sorobanEscrowService.releaseToSeller(adminKeypair, payment.id);
+            sorobanSuccess = sorobanResult.success;
+            console.log(`[Auto-Release] Soroban contract call for ${payment.id}:`, sorobanResult);
+          }
+        } catch (sorobanError) {
+          console.error(`[Auto-Release] Soroban contract call failed for ${payment.id}:`, sorobanError);
+        }
+        
+        // Fall back to classic Stellar if Soroban fails or as backup
         const result = await escrowService.signAndSubmitEscrowTransaction(
           payment.sellerAddress,
           payment.amount.toString(),
           payment.currency || 'XLM'
         );
         
-        if (result.success) {
+        if (result.success || sorobanSuccess) {
           // Update payment status to COMPLETED
           await supabase
             .from('payments')

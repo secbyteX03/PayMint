@@ -26,7 +26,7 @@ export default function AdminPanelPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
 
-  const DEFAULT_ADMIN_WALLET = 'GDJTYETYSDM4VFX4RYGTCXYMLXSGQODKGGFUBMR4INGFMXOWROGKMIIR';
+  const DEFAULT_ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET || 'GDJTYETYSDM4VFX4RYGTCXYMLXSGQODKGGFUBMR4INGFMXOWROGKMIIR';
   
   useEffect(() => {
     const stored = localStorage.getItem('adminWallets');

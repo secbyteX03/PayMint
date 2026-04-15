@@ -105,8 +105,8 @@ export default function DashboardLayout({ children }: LayoutProps) {
     { icon: User, label: 'Profile', href: '/dashboard/profile' },
   ];
 
-  // Admin wallet address for special privileges
-  const ADMIN_WALLET = 'GDJTYETYSDM4VFX4RYGTCXYMLXSGQODKGGFUBMR4INGFMXOWROGKMIIR';
+  // Admin wallet address for special privileges (should come from env in production)
+  const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET || 'GDJTYETYSDM4VFX4RYGTCXYMLXSGQODKGGFUBMR4INGFMXOWROGKMIIR';
   const isAdmin = address?.toUpperCase() === ADMIN_WALLET?.toUpperCase();
 
   // Add Admin section if user is admin
@@ -976,7 +976,7 @@ export default function DashboardLayout({ children }: LayoutProps) {
                             <div style={{ fontWeight: 600, fontSize: '12px', marginBottom: '2px' }}>{notif.title}</div>
                             <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{notif.message}</div>
                             <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>
-                              {new Date(notif.createdAt).toLocaleString()}
+                              {notif.createdAt ? new Date(notif.createdAt).toLocaleString() : 'Just now'}
                             </div>
                           </div>
                         </div>

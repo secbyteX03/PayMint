@@ -93,10 +93,10 @@ The escrow wallet must pay transaction fees when sending XLM during release/refu
 
 ### Current Escrow Address
 
-The escrow wallet address for AgentPay is:
+The escrow wallet address is read from your `ESCROW_WALLET` environment variable. When users buy a service, they send funds to this address.
 
 ```
-GASMUCKPCYZ5DGYO257VWLF5PEKGRNBWRNP2GILW2XXOTUXY3HQOKBVJ
+ESCROW_WALLET=your_escrow_wallet_address_in_your_env_file
 ```
 
 ### Steps to Fund

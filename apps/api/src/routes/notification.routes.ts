@@ -15,7 +15,7 @@ router.post('/', async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from('notifications')
       .insert({
-        user_address: userAddress,
+        useraddress: userAddress,
         type,
         title,
         message,
@@ -41,8 +41,8 @@ router.get('/address/:address', async (req: Request, res: Response) => {
     let query = supabase
       .from('notifications')
       .select('*')
-      .eq('userAddress', address)
-      .order('createdAt', { ascending: false })
+      .eq('useraddress', address)
+      .order('createdat', { ascending: false })
       .limit(50);
     
     if (unreadOnly === 'true') {

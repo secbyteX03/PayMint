@@ -93,6 +93,7 @@ model Payment {
   transactionHash  String?   // Stellar transaction hash
   escrowId         String?   // Escrow ID
   refundReason     String?   // Reason for refund request
+  rejectReason    String?   // Reason when refund was rejected
   disputeReason   String?   // Reason for dispute
   disputeOpenedAt  DateTime? // When dispute was opened
   

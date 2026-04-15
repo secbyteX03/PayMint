@@ -13,9 +13,11 @@ import {
   XCircle,
   HelpCircle,
   FileText,
-  Info
+  Info,
+  ArrowRightCircle
 } from 'lucide-react';
 import { useStellar } from '@/context/StellarContext';
+import FundEscrowModal from './FundEscrowModal';
 
 export default function EscrowPage() {
   const router = useRouter();
@@ -36,11 +38,14 @@ export default function EscrowPage() {
   const [showHelp, setShowHelp] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState<string | null>(null);
   const [showRefundConfirm, setShowRefundConfirm] = useState<string | null>(null);
+  const [showRejectConfirm, setShowRejectConfirm] = useState<string | null>(null);
   const [showDisputeConfirm, setShowDisputeConfirm] = useState<string | null>(null);
   const [showResolveDisputeConfirm, setShowResolveDisputeConfirm] = useState<string | null>(null);
   const [showRefundReason, setShowRefundReason] = useState<string | null>(null);
+  const [showFundEscrowModal, setShowFundEscrowModal] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [refundReason, setRefundReason] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
   const [disputeReason, setDisputeReason] = useState('');
   const [resolveDecision, setResolveDecision] = useState<'refund' | 'release' | null>(null);
 
@@ -350,15 +355,19 @@ export default function EscrowPage() {
     }
   };
 
-  const handleRejectRefund = async (paymentId: string) => {
+  const handleRejectRefund = async (paymentId: string, reason?: string) => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/reject-refund`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId }),
+        body: JSON.stringify({ paymentId, reason }),
       });
       
       if (res.ok) {
+        // Clear the confirmation dialog
+        setShowRejectConfirm(null);
+        setRejectReason('');
+        
         fetchData();
         window.dispatchEvent(new CustomEvent('add-notification', {
           detail: { message: 'Refund rejected', type: 'info', timestamp: new Date().toISOString() }
@@ -1354,6 +1363,32 @@ export default function EscrowPage() {
                 {/* Action Buttons - Only show for PENDING, ESCROW_CREATED, REFUND_REQUESTED, REFUND_REJECTED */}
                 {(escrow.status === 'PENDING' || escrow.status === 'ESCROW_CREATED' || escrow.status === 'REFUND_REQUESTED' || escrow.status === 'REFUND_REJECTED') && (
                   <div className="action-buttons">
+                    {/* Fund Escrow Button - Only for PENDING and only if user is the BUYER */}
+                    {escrow.status === 'PENDING' && escrow.buyerAddress === publicKey && (
+                      <button
+                        className="fund-escrow-btn"
+                        onClick={() => setShowFundEscrowModal(escrow.id)}
+                        style={{ 
+                          background: '#00ddff',
+                          color: '#000000',
+                          fontWeight: 'bold',
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '13px',
+                          width: '100%',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        💰
+                        Fund Escrow
+                      </button>
+                    )}
+                    
                     {/* Release Button - Only for ESCROW_CREATED and only if user is the BUYER */}
                     {escrow.status === 'ESCROW_CREATED' && escrow.buyerAddress === publicKey && (
                       <button 
@@ -1415,7 +1450,7 @@ export default function EscrowPage() {
                         </button>
                         <button 
                           className="reject-refund-btn"
-                          onClick={() => handleRejectRefund(escrow.id)}
+                          onClick={() => setShowRejectConfirm(escrow.id)}
                         >
                           <XCircle size={14} />
                           Reject
@@ -1439,36 +1474,70 @@ export default function EscrowPage() {
                   </div>
                 )}
                 
-                {/* Action Buttons for DISPUTED Status - Only show the option that benefits the OTHER party */}
-                {escrow.status === 'DISPUTED' && (escrow.buyerAddress === publicKey || escrow.sellerAddress === publicKey) && (
+                {/* Action Buttons for DISPUTED Status - Only BUYER can resolve the dispute */}
+                {escrow.status === 'DISPUTED' && escrow.buyerAddress === publicKey && (
                   <div className="action-buttons" style={{ marginTop: '12px' }}>
-                    {escrow.buyerAddress === publicKey ? (
-                      // Buyer is viewing - only show Release to Seller (can't refund to yourself)
-                      <button 
-                        className="release-btn"
-                        onClick={() => {
-                          setShowResolveDisputeConfirm(escrow.id);
-                          setResolveDecision('release');
-                        }}
-                        style={{ background: '#00ff9d' }}
-                      >
-                        <CheckCircle size={14} />
-                        Resolve: Release to Seller
-                      </button>
-                    ) : (
-                      // Seller is viewing - only show Refund to Buyer (can't release to yourself)
-                      <button 
-                        className="refund-btn"
-                        onClick={() => {
-                          setShowResolveDisputeConfirm(escrow.id);
-                          setResolveDecision('refund');
-                        }}
-                        style={{ background: '#ff6b6b', color: 'white' }}
-                      >
-                        <XCircle size={14} />
-                        Resolve: Refund to Buyer
-                      </button>
-                    )}
+                    <button 
+                      className="release-btn"
+                      onClick={() => {
+                        setShowResolveDisputeConfirm(escrow.id);
+                        setResolveDecision('release');
+                      }}
+                      style={{ 
+                        background: '#00ff9d',
+                        color: '#000000',
+                        fontWeight: 'bold',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <CheckCircle size={14} />
+                      Resolve: Release to Seller
+                    </button>
+                  </div>
+                )}
+                
+                {/* Action Buttons for DISPUTED Status - SELLER can resolve by releasing to buyer (refund) */}
+                {escrow.status === 'DISPUTED' && escrow.sellerAddress === publicKey && (
+                  <div className="action-buttons" style={{ marginTop: '12px' }}>
+                    <button 
+                      className="refund-btn"
+                      onClick={() => {
+                        setShowResolveDisputeConfirm(escrow.id);
+                        setResolveDecision('refund');
+                      }}
+                      style={{ 
+                        background: '#ff6b6b',
+                        color: '#ffffff',
+                        fontWeight: 'bold',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '13px'
+                      }}
+                    >
+                      <RefreshCw size={14} />
+                      Resolve: Release to Buyer
+                    </button>
+                  </div>
+                )}
+                
+                {/* For DISPUTED status - Admin/neither party sees a message */}
+                {escrow.status === 'DISPUTED' && escrow.buyerAddress !== publicKey && escrow.sellerAddress !== publicKey && (
+                  <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(255,170,0,0.15)', borderRadius: '6px', border: '1px solid rgba(255,170,0,0.3)' }}>
+                    <span style={{ color: '#ffaa00', fontSize: '12px' }}>
+                      ⏳ <strong>Dispute under review</strong> - An admin will resolve this case.
+                    </span>
                   </div>
                 )}
                 
@@ -1564,6 +1633,38 @@ export default function EscrowPage() {
                         disabled={!disputeReason.trim()}
                       >
                         Open Dispute
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Reject Refund Confirmation Dialog */}
+                {showRejectConfirm === escrow.id && (
+                  <div className="confirm-dialog" style={{ width: '100%', marginTop: '12px' }}>
+                    <div className="confirm-text" style={{ color: '#ff6b6b', marginBottom: '16px', padding: '12px', background: 'rgba(255,107,107,0.1)', borderRadius: '8px' }}>
+                      <strong>⚠️ Reject Refund Request</strong><br/>
+                      You are about to reject the buyer's refund request. The funds will remain locked in escrow until the buyer releases them to you or opens a dispute.
+                    </div>
+                    <input
+                      type="text"
+                      className="confirm-input"
+                      placeholder="Reason for rejection (required)"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                    />
+                    <div className="confirm-actions">
+                      <button 
+                        className="confirm-btn secondary"
+                        onClick={() => { setShowRejectConfirm(null); setRejectReason(''); }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="confirm-btn danger"
+                        onClick={() => handleRejectRefund(escrow.id, rejectReason)}
+                        disabled={!rejectReason.trim()}
+                      >
+                        Reject Refund
                       </button>
                     </div>
                   </div>
@@ -1710,6 +1811,18 @@ export default function EscrowPage() {
             </div>
 
             <div className="help-section">
+              <h3><ArrowRightCircle size={18} /> Fund Escrow</h3>
+              <p>
+                <strong>Step 1:</strong> After initiating a payment, you must fund the escrow by sending 
+                the payment amount to the escrow wallet address. This locks your funds in the escrow system.
+              </p>
+              <p style={{ marginTop: '8px' }}>
+                <strong>Step 2:</strong> Once you've sent the funds, click "I've Sent Funds" to confirm. 
+                The system will verify the transaction and update the payment status to ESCROW_CREATED.
+              </p>
+            </div>
+
+            <div className="help-section">
               <h3><CheckCircle size={18} /> Release Payment</h3>
               <p>
                 <strong>When to use:</strong> Only available for ESCROW_CREATED (In Escrow) payments where funds are locked in the escrow wallet.
@@ -1781,6 +1894,18 @@ export default function EscrowPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Fund Escrow Modal */}
+      {showFundEscrowModal && (
+        <FundEscrowModal 
+          paymentId={showFundEscrowModal}
+          onClose={() => setShowFundEscrowModal(null)}
+          onSuccess={() => {
+            setShowFundEscrowModal(null);
+            fetchData();
+          }}
+        />
       )}
     </>
   );

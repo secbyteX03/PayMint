@@ -27,16 +27,21 @@ router.post('/create', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
+    console.log('Creating payment - serviceId:', serviceId, 'buyerAddress:', buyerAddress, 'amount:', amount);
+    
     // Get escrow wallet address
     const escrowWallet = escrowService.getEscrowWallet();
+    console.log('Escrow wallet:', escrowWallet);
     
     // Create payment record with ESCROW_PENDING status (waiting for funds to be locked)
     const payment = await paymentService.createPayment(
       serviceId,
       buyerAddress,
       amount,
-      currency || 'USDC'
+      currency || 'XLM'
     );
+    
+    console.log('Payment created:', payment.id, 'status:', payment.status);
     
     // Return the payment along with escrow instructions
     res.status(201).json({
@@ -46,6 +51,7 @@ router.post('/create', async (req: Request, res: Response) => {
       message: `Send ${amount} ${currency || 'XLM'} to escrow wallet ${escrowWallet}`
     });
   } catch (error: any) {
+    console.error('Error creating payment:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -159,14 +165,17 @@ router.post('/release', async (req: Request, res: Response) => {
     // Update payment status
     const result = await paymentService.releasePayment(paymentId, transactionHash || 'escrow_release');
     
-    // Notify seller agent of payment completed
+    // Notify seller agent of payment completed and create notifications
     if (result) {
       try {
+        // Get service and agent info
         const { data: service } = await supabase
           .from('services')
-          .select('agentId')
+          .select('agentId, name, agent:agents(name)')
           .eq('id', payment.serviceId)
           .single();
+        
+        const agentName = service?.agent?.name || 'Unknown Agent';
         
         if (service?.agentId) {
           await webhookService.notifyPaymentCompleted(service.agentId, {
@@ -175,6 +184,24 @@ router.post('/release', async (req: Request, res: Response) => {
             transactionHash: 'escrow_release',
           });
         }
+        
+        // Create notification for seller - funds received
+        await supabase.from('notifications').insert({
+          useraddress: payment.sellerAddress,
+          type: 'PAYMENT_RELEASED',
+          title: 'Payment Released',
+          message: `You received ${payment.amount} ${payment.currency || 'XLM'} from buyer for service: ${agentName}`,
+          paymentId,
+        });
+        
+        // Create notification for buyer - funds released to seller
+        await supabase.from('notifications').insert({
+          useraddress: payment.buyerAddress,
+          type: 'PAYMENT_RELEASED',
+          title: 'Payment Completed',
+          message: `You released ${payment.amount} ${payment.currency || 'XLM'} to the seller for service: ${agentName}`,
+          paymentId,
+        });
       } catch (webhookError) {
         console.error('Webhook notification failed:', webhookError);
       }
@@ -207,11 +234,14 @@ router.post('/refund', async (req: Request, res: Response) => {
           .single();
         
         if (payment) {
+          // Get agent name
           const { data: service } = await supabase
             .from('services')
-            .select('agentId')
+            .select('agentId, name')
             .eq('id', payment.serviceId)
             .single();
+          
+          const agentName = service?.name || 'Unknown Agent';
           
           if (service?.agentId) {
             await webhookService.notifyRefundRequested(service.agentId, {
@@ -221,12 +251,12 @@ router.post('/refund', async (req: Request, res: Response) => {
             });
           }
           
-          // Create notification for seller
+          // Create notification for seller with agent name
           await supabase.from('notifications').insert({
-            userAddress: payment.sellerAddress,
+            useraddress: payment.sellerAddress,
             type: 'REFUND_REQUESTED',
             title: 'Refund Requested',
-            message: `A buyer has requested a refund of ${payment.amount} XLM. Please review and approve or reject.`,
+            message: `A buyer requested a refund of ${payment.amount} XLM for service: ${agentName}. Reason: ${payment.refundReason || 'Not specified'}`,
             paymentId,
           });
         }
@@ -282,14 +312,17 @@ router.post('/approve-refund', async (req: Request, res: Response) => {
     // Update payment status
     const result = await paymentService.approveRefund(paymentId);
     
-    // Notify seller agent that refund was approved (funds returned to buyer)
+    // Notify both parties and create notifications
     if (result) {
       try {
+        // Get service and agent info
         const { data: service } = await supabase
           .from('services')
-          .select('agentId')
+          .select('agentId, name')
           .eq('id', payment.serviceId)
           .single();
+        
+        const agentName = service?.name || 'Unknown Agent';
         
         if (service?.agentId) {
           await webhookService.notifyPaymentRefunded(service.agentId, {
@@ -298,12 +331,21 @@ router.post('/approve-refund', async (req: Request, res: Response) => {
           });
         }
         
-        // Create notification for buyer that refund was approved
+        // Create notification for buyer - refund approved
         await supabase.from('notifications').insert({
-          user_address: payment.buyerAddress,
+          useraddress: payment.buyerAddress,
           type: 'REFUND_APPROVED',
           title: 'Refund Approved',
-          message: `Your refund of ${payment.amount} XLM has been approved. The funds will be returned to your wallet.`,
+          message: `Your refund of ${payment.amount} ${payment.currency || 'XLM'} has been approved for service: ${agentName}. Funds returned to your wallet.`,
+          paymentId,
+        });
+        
+        // Create notification for seller - refund was approved (they didn't get paid)
+        await supabase.from('notifications').insert({
+          useraddress: payment.sellerAddress,
+          type: 'REFUND_APPROVED',
+          title: 'Refund Approved - No Payment',
+          message: `The refund for service: ${agentName} was approved. The buyer received their ${payment.amount} ${payment.currency || 'XLM'} back.`,
           paymentId,
         });
       } catch (webhookError) {
@@ -320,30 +362,48 @@ router.post('/approve-refund', async (req: Request, res: Response) => {
 // Reject refund - goes back to ESCROW_CREATED
 router.post('/reject-refund', async (req: Request, res: Response) => {
   try {
-    const { paymentId } = req.body;
+    const { paymentId, reason } = req.body;
     
     if (!paymentId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
-    const result = await paymentService.rejectRefund(paymentId);
+    const result = await paymentService.rejectRefund(paymentId, reason);
     
-    // Notify buyer that refund was rejected
+    // Notify buyer that refund was rejected and create notifications
     if (result) {
       try {
         const { data: payment } = await supabase
           .from('payments')
-          .select('buyerAddress, amount')
+          .select('buyerAddress, sellerAddress, amount, currency, serviceId')
           .eq('id', paymentId)
           .single();
         
-        if (payment?.buyerAddress) {
-          // Create notification for buyer
+        if (payment) {
+          // Get agent name
+          const { data: service } = await supabase
+            .from('services')
+            .select('name')
+            .eq('id', payment.serviceId)
+            .single();
+          
+          const agentName = service?.name || 'Unknown Agent';
+          
+          // Create notification for buyer - refund rejected
           await supabase.from('notifications').insert({
-            userAddress: payment.buyerAddress,
+            useraddress: payment.buyerAddress,
             type: 'REFUND_REJECTED',
             title: 'Refund Rejected',
-            message: `Your refund request of ${payment.amount} XLM has been rejected. You can open a dispute if you disagree.`,
+            message: `Your refund request of ${payment.amount} ${payment.currency || 'XLM'} for service: ${agentName} was rejected. You can open a dispute.`,
+            paymentId,
+          });
+          
+          // Create notification for seller - they rejected the refund request
+          await supabase.from('notifications').insert({
+            useraddress: payment.sellerAddress,
+            type: 'REFUND_REJECTED',
+            title: 'Refund Request Rejected',
+            message: `You rejected the refund request for service: ${agentName}. The escrow remains active.`,
             paymentId,
           });
         }
@@ -394,7 +454,7 @@ router.post('/dispute', async (req: Request, res: Response) => {
           
           // Create notification for seller
           await supabase.from('notifications').insert({
-            userAddress: payment.sellerAddress,
+            useraddress: payment.sellerAddress,
             type: 'DISPUTE_OPENED',
             title: 'Dispute Opened',
             message: `A dispute has been opened for this payment. Our support team will review the case.`,
@@ -416,6 +476,9 @@ router.post('/dispute', async (req: Request, res: Response) => {
 router.post('/resolve-dispute', async (req: Request, res: Response) => {
   try {
     const { paymentId, resolution, refundBuyer } = req.body;
+    
+    // Support resolution='refund_buyer' as alternative to refundBuyer=true
+    const shouldRefundBuyer = refundBuyer || resolution === 'refund_buyer';
     
     if (!paymentId) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -454,7 +517,7 @@ router.post('/resolve-dispute', async (req: Request, res: Response) => {
       }
       
       // Execute escrow transaction if refunding buyer
-      if (refundBuyer) {
+      if (shouldRefundBuyer) {
         try {
           const refundResult = await escrowService.signAndSubmitEscrowTransaction(
             payment.buyerAddress,
@@ -482,7 +545,7 @@ router.post('/resolve-dispute', async (req: Request, res: Response) => {
       }
     }
     
-    const result = await paymentService.resolveDispute(paymentId, resolution, refundBuyer);
+    const result = await paymentService.resolveDispute(paymentId, resolution, shouldRefundBuyer);
     
     // Notify parties of dispute resolution
     if (result) {
@@ -511,7 +574,7 @@ router.post('/resolve-dispute', async (req: Request, res: Response) => {
           
           // Create notification for seller
           await supabase.from('notifications').insert({
-            userAddress: payment.sellerAddress,
+            useraddress: payment.sellerAddress,
             type: 'DISPUTE_RESOLVED',
             title: 'Dispute Resolved',
             message: refundBuyer 
@@ -522,7 +585,7 @@ router.post('/resolve-dispute', async (req: Request, res: Response) => {
           
           // Create notification for buyer
           await supabase.from('notifications').insert({
-            userAddress: payment.buyerAddress,
+            useraddress: payment.buyerAddress,
             type: 'DISPUTE_RESOLVED',
             title: 'Dispute Resolved',
             message: refundBuyer 
