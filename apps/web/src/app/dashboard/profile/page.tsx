@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStellar } from '@/context/StellarContext';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, Shield } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -11,6 +11,10 @@ export default function ProfilePage() {
   const [displayAgents, setDisplayAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  // Admin wallet from environment
+  const ADMIN_WALLET = 'GDJTYETYSDM4VFX4RYGTCXYMLXSGQODKGGFUBMR4INGFMXOWROGKMIIR';
+  const isAdmin = address?.toUpperCase() === ADMIN_WALLET.toUpperCase();
 
   useEffect(() => {
     if (address) {
@@ -288,7 +292,26 @@ export default function ProfilePage() {
 
       <div className="panel">
         <div className="panel-header">
-          <div className="panel-title">Wallet Connected ✓</div>
+          <div className="panel-title">
+            Wallet Connected ✓
+            {isAdmin && (
+              <span style={{ 
+                marginLeft: '12px', 
+                background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+                color: 'white',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.5px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Shield size={12} /> ADMIN
+              </span>
+            )}
+          </div>
           <div className="panel-meta">ACTIVE</div>
         </div>
         <div style={{ padding: '20px 0' }}>
