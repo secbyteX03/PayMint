@@ -1394,11 +1394,11 @@ export default function DashboardPage() {
   };
 
   const openPlayground = () => {
-    window.location.href = '/docs';
+    window.location.href = '/dashboard/api-docs';
   };
 
   const goToRegister = () => {
-    window.location.href = '/register';
+    window.location.href = '/connect';
   };
 
   const goToConnect = () => {
