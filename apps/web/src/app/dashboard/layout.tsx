@@ -924,11 +924,9 @@ export default function DashboardLayout({ children }: LayoutProps) {
             <Menu size={20} />
           </button>
           
-          <div className="dashboard-logo" onClick={() => router.push('/dashboard')}>
-            <div className="logo-icon">
-              <Zap size={14} color="white" />
-            </div>
-            PayMint
+          <div className="dashboard-logo" onClick={() => router.push('/')}>
+            <img src="/images/logo.png" alt="PayMint Logo" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'contain' }} />
+            <span>PayMint</span>
           </div>
           
           <span className="network-badge">STELLAR TESTNET</span>
